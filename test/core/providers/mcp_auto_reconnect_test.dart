@@ -10,8 +10,23 @@ import 'package:Cuplivo/core/providers/mcp_provider.dart';
 /// `notifications/initialized` and `tools/list` so mcp_client can complete
 /// a real connect handshake. No `MCP-Session-Id` header is sent, so the
 /// transport stays in pure request/response mode (no SSE GET stream).
+///
+/// Binds to [port], retrying briefly in case another concurrently-running
+/// test grabbed the port between probe and bind.
 Future<HttpServer> _startMcpServer(int port) async {
-  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+  for (var attempt = 0; attempt < 5; attempt++) {
+    try {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+      _attachMcpHandler(server);
+      return server;
+    } on SocketException {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+  }
+  throw StateError('could not bind MCP test server to port $port');
+}
+
+void _attachMcpHandler(HttpServer server) {
   server.listen((request) async {
     if (request.method != 'POST') {
       request.response.statusCode = 405;
@@ -33,7 +48,9 @@ Future<HttpServer> _startMcpServer(int port) async {
           'result': {
             'protocolVersion': (msg['params'] as Map)['protocolVersion'],
             'serverInfo': {'name': 'Test MCP', 'version': '1.0.0'},
-            'capabilities': {'tools': true},
+            // mcp_client's ServerCapabilities.fromJson requires `tools` to
+            // be an object, not the spec's boolean `true`.
+            'capabilities': {'tools': <String, Object>{}},
           },
         }),
       );
@@ -54,7 +71,6 @@ Future<HttpServer> _startMcpServer(int port) async {
     }
     await response.close();
   });
-  return server;
 }
 
 /// Returns a port that is free right now (bound then released).
