@@ -11,22 +11,20 @@ import 'package:Cuplivo/core/providers/mcp_provider.dart';
 /// a real connect handshake. No `MCP-Session-Id` header is sent, so the
 /// transport stays in pure request/response mode (no SSE GET stream).
 ///
-/// Binds to [port], retrying briefly in case another concurrently-running
-/// test grabbed the port between probe and bind.
-Future<HttpServer> _startMcpServer(int port) async {
-  for (var attempt = 0; attempt < 5; attempt++) {
-    try {
-      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-      _attachMcpHandler(server);
-      return server;
-    } on SocketException {
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-    }
-  }
-  throw StateError('could not bind MCP test server to port $port');
+/// While [authRequired] returns true every request is answered with a
+/// plain HTTP 401. mcp_client treats that as a JSON-RPC error message
+/// (not a transport stream error), so failed connects stay quiet — no
+/// unhandled stream errors in the test zone.
+Future<HttpServer> _startMcpServer(
+  int port, {
+  required bool Function() authRequired,
+}) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+  _attachMcpHandler(server, authRequired);
+  return server;
 }
 
-void _attachMcpHandler(HttpServer server) {
+void _attachMcpHandler(HttpServer server, bool Function() authRequired) {
   server.listen((request) async {
     if (request.method != 'POST') {
       request.response.statusCode = 405;
@@ -39,6 +37,14 @@ void _attachMcpHandler(HttpServer server) {
     final id = msg['id'];
     final response = request.response;
     response.headers.contentType = ContentType.json;
+    if (authRequired()) {
+      // No OAuth is configured, so the client surfaces this as an
+      // McpError from initialize() and retries; it never emits an
+      // unhandled transport stream error.
+      response.statusCode = 401;
+      await response.close();
+      return;
+    }
     if (method == 'initialize') {
       response.statusCode = 200;
       response.write(
@@ -73,14 +79,6 @@ void _attachMcpHandler(HttpServer server) {
   });
 }
 
-/// Returns a port that is free right now (bound then released).
-Future<int> _freePort() async {
-  final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-  final port = probe.port;
-  await probe.close();
-  return port;
-}
-
 /// Polls [predicate] until it returns true or [timeout] elapses.
 Future<bool> _waitUntil(
   Future<bool> Function() predicate,
@@ -96,19 +94,23 @@ Future<bool> _waitUntil(
 
 void main() {
   test(
-    'an enabled server whose initial connect failed auto-reconnects once it '
-    'becomes reachable (network restore after app start)',
+    'an enabled server whose initial connect failed auto-reconnects once the '
+    'server accepts connections again (network restore after app start)',
     () async {
       SharedPreferences.setMockInitialValues({});
-      final port = await _freePort();
+      // The server runs for the whole test: first rejecting every request
+      // (simulates the network being down / server unreachable), then
+      // accepting. Binding port 0 gives a real free port — no probe race.
+      var authRequired = true;
+      final server = await _startMcpServer(
+        0,
+        authRequired: () => authRequired,
+      );
+      final port = server.port;
 
       final provider = McpProvider(
         contextProvider: () => throw UnimplementedError(),
       );
-      // Fail fast: mcp_client swallows transport errors, so a dead endpoint
-      // only surfaces after the request timeout (default 30s would make this
-      // test too slow). Each failed connect also retries 3x with 2s delays.
-      await provider.updateRequestTimeout(const Duration(milliseconds: 800));
       final id = await provider.addServer(
         enabled: true,
         name: 'Auto Reconnect',
@@ -119,24 +121,25 @@ void main() {
       );
       await pumpEventQueue();
 
-      // Phase 1: server is down — the initial connect fails and the provider
-      // lands in the error state (tools unavailable to the main agent).
-      final reachedError = await _waitUntil(
-        () async => provider.statusFor(id) == McpStatus.error,
-        const Duration(seconds: 12),
-      );
-      expect(
-        reachedError,
-        isTrue,
-        reason: 'connect to a dead endpoint should end in the error state',
-      );
-      expect(provider.isConnected(id), isFalse);
-
-      // Phase 2: server comes up (e.g. the network is restored). The
-      // supervisor heartbeat must reconnect automatically without any
-      // user action.
-      final server = await _startMcpServer(port);
       try {
+        // Phase 1: server rejects requests — the initial connect fails and
+        // the provider lands in the error state (tools unavailable to the
+        // main agent).
+        final reachedError = await _waitUntil(
+          () async => provider.statusFor(id) == McpStatus.error,
+          const Duration(seconds: 12),
+        );
+        expect(
+          reachedError,
+          isTrue,
+          reason: 'a rejected connect should end in the error state',
+        );
+        expect(provider.isConnected(id), isFalse);
+
+        // Phase 2: server starts accepting (e.g. the network is restored).
+        // The supervisor heartbeat must reconnect automatically without any
+        // user action.
+        authRequired = false;
         final reconnected = await _waitUntil(
           () async => provider.isConnected(id),
           const Duration(seconds: 15),
