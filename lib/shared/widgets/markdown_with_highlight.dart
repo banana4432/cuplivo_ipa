@@ -615,11 +615,17 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
         for (final block in _stableBlocks) block,
         if (tail.isNotEmpty) buildMarkdownFor(tail, streaming: true),
       ];
-      final streamingColumn = Column(
-        key: const ValueKey('incremental-streaming-markdown'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+      // ListBody (not Column) on purpose: like the chat scroll view it gives
+      // children unbounded main-axis extent, so long streamed content never
+      // triggers a RenderFlex overflow assert in bounded-height contexts. The
+      // width is forced to fill like the non-streaming path (which receives a
+      // tight width from the chat bubble's CrossAxisAlignment.stretch).
+      final streamingColumn = SizedBox(
+        width: double.infinity,
+        child: ListBody(
+          key: const ValueKey('incremental-streaming-markdown'),
+          children: children,
+        ),
       );
       final streamingResult = appFontFamily.isEmpty
           ? streamingColumn
