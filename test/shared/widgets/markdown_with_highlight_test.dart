@@ -3682,6 +3682,86 @@ void main() {
   );
 
   testWidgets(
+    'MarkdownWithCodeHighlight themes details block with elevated surfaces '
+    '(issue #298: no black block in dark mode)',
+    (tester) async {
+      const markdown = '<details><summary>更多信息</summary>隐藏内容</details>';
+
+      // Dark mode: the block must use the theme's elevated surface (same as
+      // code blocks) instead of a near-black blend of cs.surface.
+      final darkTheme = ThemeData(
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      );
+      await tester.pumpWidget(
+        _markdownHarness(
+          markdown,
+          theme: darkTheme,
+          darkTheme: darkTheme,
+          themeMode: ThemeMode.dark,
+        ),
+      );
+      await tester.pump();
+
+      final block = tester.widget<Container>(
+        find.byKey(const ValueKey('details-block')),
+      );
+      expect(
+        (block.decoration! as BoxDecoration).color,
+        darkTheme.colorScheme.surfaceContainer,
+      );
+
+      // The summary header gets the code-block-style header surface.
+      // (Container(color:) stores the color in `color`, not `decoration`.)
+      final headerColor = darkTheme.colorScheme.surfaceContainerHighest;
+      final headerContainers = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byKey(const ValueKey('details-block')),
+              matching: find.byType(Container),
+            ),
+          )
+          .where(
+            (c) =>
+                c.color == headerColor ||
+                (c.decoration is BoxDecoration &&
+                    (c.decoration! as BoxDecoration).color == headerColor),
+          );
+      expect(headerContainers, isNotEmpty);
+
+      // Sanity: the block still collapses/expands in dark mode.
+      expect(find.text('隐藏内容', findRichText: true), findsNothing);
+      await tester.tap(find.text('更多信息'));
+      await tester.pumpAndSettle();
+      expect(find.text('隐藏内容', findRichText: true), findsOneWidget);
+
+      // Light mode: the block follows the light elevated surface too.
+      final lightTheme = ThemeData(
+        brightness: Brightness.light,
+        useMaterial3: true,
+      );
+      await tester.pumpWidget(
+        _markdownHarness(
+          markdown,
+          theme: lightTheme,
+          darkTheme: lightTheme,
+          themeMode: ThemeMode.light,
+        ),
+      );
+      // MaterialApp animates theme changes (AnimatedTheme), so settle it.
+      await tester.pumpAndSettle();
+
+      final lightBlock = tester.widget<Container>(
+        find.byKey(const ValueKey('details-block')),
+      );
+      expect(
+        (lightBlock.decoration! as BoxDecoration).color,
+        lightTheme.colorScheme.surfaceContainer,
+      );
+    },
+  );
+
+  testWidgets(
     'MarkdownWithCodeHighlight opens math export menu on long press',
     (tester) async {
       markdownMathTargetPlatformOverride = TargetPlatform.android;
