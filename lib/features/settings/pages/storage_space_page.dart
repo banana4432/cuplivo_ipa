@@ -44,6 +44,8 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
   bool _loading = false;
   bool _clearing = false;
   StorageUsageCategoryKey _selected = StorageUsageCategoryKey.images;
+  final _scanProgress = ValueNotifier<({int files, int bytes})?>(null);
+  DateTime _lastProgressEmit = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -51,11 +53,40 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
     _refreshReport();
   }
 
+  @override
+  void dispose() {
+    _scanProgress.dispose();
+    super.dispose();
+  }
+
+  /// Collects the effective host path of every workspace so customHostPath
+  /// workspaces (which live outside the managed roots) are scanned too.
+  List<String> _workspaceHostPaths() {
+    final wp = context.read<WorkspaceProvider>();
+    return [
+      for (final w in wp.workspaces)
+        if (wp.hostPathFor(w) case final host?) host,
+    ];
+  }
+
+  /// Throttled progress feed from the scan; loading UI renders the latest
+  /// running totals so huge trees do not look frozen.
+  void _onScanProgress(int files, int bytes) {
+    final now = DateTime.now();
+    if (now.difference(_lastProgressEmit).inMilliseconds < 250) return;
+    _lastProgressEmit = now;
+    _scanProgress.value = (files: files, bytes: bytes);
+  }
+
   Future<StorageUsageReport?> _refreshReport() async {
     if (_loading) return _report;
     setState(() => _loading = true);
+    _scanProgress.value = null;
     try {
-      final rep = await StorageUsageService.computeReport();
+      final rep = await StorageUsageService.computeReport(
+        workspaceHostPaths: _workspaceHostPaths(),
+        onProgress: _onScanProgress,
+      );
       if (!mounted) return rep;
       setState(() {
         _report = rep;
@@ -73,6 +104,37 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
       setState(() => _loading = false);
       return null;
     }
+  }
+
+  /// Loading state while the full scan runs. Shows the throttled running
+  /// totals from the scan so huge trees (e.g. sandbox rootfs) do not look
+  /// like a frozen spinner.
+  Widget _buildLoading(AppLocalizations l10n) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 12),
+          ValueListenableBuilder<({int files, int bytes})?>(
+            valueListenable: _scanProgress,
+            builder: (context, progress, _) {
+              final cs = Theme.of(context).colorScheme;
+              final style = TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.7),
+              );
+              final progressText = progress == null
+                  ? l10n.storageSpaceScanning
+                  : l10n.storageSpaceScanningProgress(
+                      progress.files,
+                      formatBytes(progress.bytes),
+                    );
+              return Text(progressText, style: style);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   /// Categories shown in menus/legends: empty ones are hidden, except the
@@ -449,13 +511,8 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
     setState(() => _clearing = true);
     try {
       if (!mounted) return;
-      final wp = context.read<WorkspaceProvider>();
-      final hostPaths = [
-        for (final w in wp.workspaces)
-          if (wp.hostPathFor(w) case final host?) host,
-      ];
       final keptRuntime = await StorageUsageService.clearSandbox(
-        workspaceHostPaths: hostPaths,
+        workspaceHostPaths: _workspaceHostPaths(),
       );
       if (!mounted) return;
       showAppSnackBar(
@@ -521,7 +578,7 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
     final isDesktop = PlatformUtils.isDesktopTarget;
 
     final body = _loading && _report == null
-        ? const Center(child: CircularProgressIndicator())
+        ? _buildLoading(l10n)
         : _report == null
         ? Center(
             child: Text(

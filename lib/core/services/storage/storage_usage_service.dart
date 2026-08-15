@@ -128,8 +128,12 @@ abstract final class StorageUsageService {
     }
   }
 
-  static Future<StorageUsageReport> computeReport() async {
+  static Future<StorageUsageReport> computeReport({
+    List<String> workspaceHostPaths = const [],
+    void Function(int files, int bytes)? onProgress,
+  }) async {
     final root = await AppDirectories.getAppDataDirectory();
+    final progress = _ScanProgress(onProgress ?? (_, _) {});
 
     final byCat = <StorageUsageCategoryKey, _MutableStats>{
       for (final k in StorageUsageCategoryKey.values) k: _MutableStats(),
@@ -161,8 +165,7 @@ abstract final class StorageUsageService {
       'other_logs': _MutableStats(),
     };
 
-    int totalBytes = 0;
-    int totalFiles = 0;
+    final workspacesRoot = await AppDirectories.getWorkspacesRootDirectory();
 
     if (!await root.exists()) {
       return StorageUsageReport(
@@ -180,105 +183,106 @@ abstract final class StorageUsageService {
     }
 
     try {
-      await for (final ent in root.list(recursive: true, followLinks: false)) {
-        if (ent is! File) continue;
-        int bytes = 0;
-        try {
-          bytes = await ent.length();
-        } catch (_) {
-          bytes = 0;
-        }
-        totalFiles += 1;
-        totalBytes += bytes;
-
-        final rel = p.relative(ent.path, from: root.path);
-        final parts = p.split(rel);
-        if (parts.isEmpty) {
-          byCat[StorageUsageCategoryKey.other]!.add(bytes);
-          continue;
-        }
-
-        // Root-level chat data is stored by Drift in the SQLite database file
-        // family. Legacy Hive boxes are migration inputs only and should not
-        // affect the steady-state chat records size.
-        if (parts.length == 1) {
-          final name = parts.first;
-          final chatSubId = _chatDatabaseSubcategoryId(name);
-          if (chatSubId != null) {
-            byCat[StorageUsageCategoryKey.chatData]!.add(bytes);
-            chatSubs[chatSubId]!.add(bytes);
-          } else {
+      await _scanFilesConcurrently(
+        root,
+        progress: progress,
+        onFile: (ent, bytes) {
+          final rel = p.relative(ent.path, from: root.path);
+          final parts = p.split(rel);
+          if (parts.isEmpty) {
             byCat[StorageUsageCategoryKey.other]!.add(bytes);
+            return;
           }
-          continue;
-        }
 
-        final top = parts.first.toLowerCase();
-        switch (top) {
-          case 'upload':
-            final name = parts.last;
-            if (_isImageExt(name)) {
-              byCat[StorageUsageCategoryKey.images]!.add(bytes);
-            } else {
-              byCat[StorageUsageCategoryKey.files]!.add(bytes);
+          // Root-level chat data is stored by Drift in the SQLite database file
+          // family. Legacy Hive boxes are migration inputs only and should not
+          // affect the steady-state chat records size.
+          if (parts.length == 1) {
+            final name = parts.first;
+            final chatSubId = _chatDatabaseSubcategoryId(name);
+            if (chatSubId != null) {
+              byCat[StorageUsageCategoryKey.chatData]!.add(bytes);
+              chatSubs[chatSubId]!.add(bytes);
+              return;
             }
-            break;
-          case 'avatars':
-            byCat[StorageUsageCategoryKey.assistantData]!.add(bytes);
-            assistantSubs['avatars']!.add(bytes);
-            break;
-          case 'workspaces':
-            // Per-workspace Linux sandboxes (.sandbox: rootfs, tmp, staged
-            // dependency archives) are counted separately so they can be
-            // cleared; everything else under a workspace is user files.
-            if (parts.any((part) => part.toLowerCase() == '.sandbox')) {
-              byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
-              sandboxSubs['sandbox_per_ws']!.add(bytes);
-            } else {
-              byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
-            }
-            break;
-          case 'skills':
-            byCat[StorageUsageCategoryKey.skills]!.add(bytes);
-            break;
-          case 'fonts':
-            byCat[StorageUsageCategoryKey.fonts]!.add(bytes);
-            break;
-          case 'linux-sandbox':
-            // Shared Linux sandbox runtime (Android; iOS lives outside the
-            // app data root and is scanned separately below).
-            byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
-            sandboxSubs['sandbox_shared_runtime']!.add(bytes);
-            break;
-          case 'images':
-            // Inline/generated images are stored under appData/images.
-            // Treat them as "Images" so users can manage them together.
-            byCat[StorageUsageCategoryKey.images]!.add(bytes);
-            break;
-          case 'cache':
-            byCat[StorageUsageCategoryKey.cache]!.add(bytes);
-            if (parts.length >= 2 && parts[1].toLowerCase() == 'avatars') {
-              cacheSubs['avatar_cache']!.add(bytes);
-            } else {
-              cacheSubs['other_cache']!.add(bytes);
-            }
-            break;
-          case 'logs':
-            byCat[StorageUsageCategoryKey.logs]!.add(bytes);
-            final name = parts.last.toLowerCase();
-            if (name.startsWith('flutter_logs')) {
-              logsSubs['flutter_logs']!.add(bytes);
-            } else if (name.startsWith('logs')) {
-              logsSubs['request_logs']!.add(bytes);
-            } else {
-              logsSubs['other_logs']!.add(bytes);
-            }
-            break;
-          default:
             byCat[StorageUsageCategoryKey.other]!.add(bytes);
-            break;
-        }
-      }
+            return;
+          }
+
+          // A relocated workspaces root (workspaces_dir_v1) may live inside
+          // the app data root under a non-"workspaces" name. The main scan
+          // must categorize it by its effective path, not by the literal
+          // top-level name, so the .sandbox split and clear affordance keep
+          // working (mirrors the separate scan below for relocated roots
+          // outside the app data root).
+          final topLevel = p.join(root.path, parts.first);
+          if (p.equals(topLevel, workspacesRoot.path)) {
+            _addWorkspaceEntry(parts, bytes, byCat, sandboxSubs);
+            return;
+          }
+
+          final top = parts.first.toLowerCase();
+          switch (top) {
+            case 'upload':
+              final name = parts.last;
+              if (_isImageExt(name)) {
+                byCat[StorageUsageCategoryKey.images]!.add(bytes);
+              } else {
+                byCat[StorageUsageCategoryKey.files]!.add(bytes);
+              }
+              break;
+            case 'avatars':
+              byCat[StorageUsageCategoryKey.assistantData]!.add(bytes);
+              assistantSubs['avatars']!.add(bytes);
+              break;
+            case 'workspaces':
+              // Only reached for a stale root/workspaces leftover when the
+              // root has been relocated elsewhere; the effective root is
+              // handled by the path equality check above.
+              _addWorkspaceEntry(parts, bytes, byCat, sandboxSubs);
+              break;
+            case 'skills':
+              byCat[StorageUsageCategoryKey.skills]!.add(bytes);
+              break;
+            case 'fonts':
+              byCat[StorageUsageCategoryKey.fonts]!.add(bytes);
+              break;
+            case 'linux-sandbox':
+              // Shared Linux sandbox runtime (Android; iOS lives outside the
+              // app data root and is scanned separately below).
+              byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+              sandboxSubs['sandbox_shared_runtime']!.add(bytes);
+              break;
+            case 'images':
+              // Inline/generated images are stored under appData/images.
+              // Treat them as "Images" so users can manage them together.
+              byCat[StorageUsageCategoryKey.images]!.add(bytes);
+              break;
+            case 'cache':
+              byCat[StorageUsageCategoryKey.cache]!.add(bytes);
+              if (parts.length >= 2 && parts[1].toLowerCase() == 'avatars') {
+                cacheSubs['avatar_cache']!.add(bytes);
+              } else {
+                cacheSubs['other_cache']!.add(bytes);
+              }
+              break;
+            case 'logs':
+              byCat[StorageUsageCategoryKey.logs]!.add(bytes);
+              final name = parts.last.toLowerCase();
+              if (name.startsWith('flutter_logs')) {
+                logsSubs['flutter_logs']!.add(bytes);
+              } else if (name.startsWith('logs')) {
+                logsSubs['request_logs']!.add(bytes);
+              } else {
+                logsSubs['other_logs']!.add(bytes);
+              }
+              break;
+            default:
+              byCat[StorageUsageCategoryKey.other]!.add(bytes);
+              break;
+          }
+        },
+      );
     } catch (_) {
       // If listing fails for any reason, fall back to 0s; UI will show load failed.
     }
@@ -286,31 +290,24 @@ abstract final class StorageUsageService {
     // Desktop workspaces root can be relocated (workspaces_dir_v1) to a
     // location outside the app data root — the main scan above misses it
     // entirely. Scan it separately, keeping the same .sandbox split.
-    final workspacesRoot = await AppDirectories.getWorkspacesRootDirectory();
     if (!AppDirectories.isPathInside(workspacesRoot.path, root.path)) {
       try {
         if (await workspacesRoot.exists()) {
-          await for (final ent in workspacesRoot.list(
-            recursive: true,
-            followLinks: false,
-          )) {
-            if (ent is! File) continue;
-            int bytes = 0;
-            try {
-              bytes = await ent.length();
-            } catch (_) {
-              bytes = 0;
-            }
-            totalFiles += 1;
-            totalBytes += bytes;
-            final rel = p.relative(ent.path, from: workspacesRoot.path);
-            if (p.split(rel).any((part) => part.toLowerCase() == '.sandbox')) {
-              byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
-              sandboxSubs['sandbox_per_ws']!.add(bytes);
-            } else {
-              byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
-            }
-          }
+          await _scanFilesConcurrently(
+            workspacesRoot,
+            progress: progress,
+            onFile: (ent, bytes) {
+              final rel = p.relative(ent.path, from: workspacesRoot.path);
+              if (p
+                  .split(rel)
+                  .any((part) => part.toLowerCase() == '.sandbox')) {
+                byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+                sandboxSubs['sandbox_per_ws']!.add(bytes);
+              } else {
+                byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
+              }
+            },
+          );
         }
       } catch (_) {}
     }
@@ -322,22 +319,50 @@ abstract final class StorageUsageService {
     if (!AppDirectories.isPathInside(sandboxRuntime.path, root.path)) {
       try {
         if (await sandboxRuntime.exists()) {
-          await for (final ent in sandboxRuntime.list(
-            recursive: true,
-            followLinks: false,
-          )) {
-            if (ent is! File) continue;
-            int bytes = 0;
-            try {
-              bytes = await ent.length();
-            } catch (_) {
-              bytes = 0;
-            }
-            totalFiles += 1;
-            totalBytes += bytes;
-            byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
-            sandboxSubs['sandbox_shared_runtime']!.add(bytes);
-          }
+          await _scanFilesConcurrently(
+            sandboxRuntime,
+            progress: progress,
+            onFile: (ent, bytes) {
+              byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+              sandboxSubs['sandbox_shared_runtime']!.add(bytes);
+            },
+          );
+        }
+      } catch (_) {}
+    }
+
+    // Workspaces with a customHostPath live outside the managed roots. Their
+    // `.sandbox` dirs are still cleared by [clearSandbox], so scan them too,
+    // deduped against every root already covered above.
+    final coveredRoots = <String>{
+      p.normalize(p.absolute(root.path)),
+      p.normalize(p.absolute(workspacesRoot.path)),
+      p.normalize(p.absolute(sandboxRuntime.path)),
+    };
+    final seenHosts = <String>{};
+    for (final host in workspaceHostPaths) {
+      final normHost = p.normalize(p.absolute(host));
+      if (normHost.isEmpty || !seenHosts.add(normHost)) continue;
+      if (coveredRoots.any((r) => AppDirectories.isPathInside(normHost, r))) {
+        continue;
+      }
+      try {
+        if (await Directory(host).exists()) {
+          await _scanFilesConcurrently(
+            Directory(host),
+            progress: progress,
+            onFile: (ent, bytes) {
+              final rel = p.relative(ent.path, from: host);
+              if (p
+                  .split(rel)
+                  .any((part) => part.toLowerCase() == '.sandbox')) {
+                byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+                sandboxSubs['sandbox_per_ws']!.add(bytes);
+              } else {
+                byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
+              }
+            },
+          );
         }
       } catch (_) {}
     }
@@ -360,22 +385,14 @@ abstract final class StorageUsageService {
     // Platform cache directory (e.g. Android /data/user/0/<package>/cache).
     try {
       if (await systemCacheDir.exists()) {
-        await for (final ent in systemCacheDir.list(
-          recursive: true,
-          followLinks: false,
-        )) {
-          if (ent is! File) continue;
-          int bytes = 0;
-          try {
-            bytes = await ent.length();
-          } catch (_) {
-            bytes = 0;
-          }
-          totalFiles += 1;
-          totalBytes += bytes;
-          byCat[StorageUsageCategoryKey.cache]!.add(bytes);
-          cacheSubs['system_cache']!.add(bytes);
-        }
+        await _scanFilesConcurrently(
+          systemCacheDir,
+          progress: progress,
+          onFile: (ent, bytes) {
+            byCat[StorageUsageCategoryKey.cache]!.add(bytes);
+            cacheSubs['system_cache']!.add(bytes);
+          },
+        );
       }
     } catch (_) {}
 
@@ -383,22 +400,14 @@ abstract final class StorageUsageService {
       final tmpDir = Directory(iosTmpPath);
       try {
         if (await tmpDir.exists()) {
-          await for (final ent in tmpDir.list(
-            recursive: true,
-            followLinks: false,
-          )) {
-            if (ent is! File) continue;
-            int bytes = 0;
-            try {
-              bytes = await ent.length();
-            } catch (_) {
-              bytes = 0;
-            }
-            totalFiles += 1;
-            totalBytes += bytes;
-            byCat[StorageUsageCategoryKey.cache]!.add(bytes);
-            cacheSubs['tmp_cache']!.add(bytes);
-          }
+          await _scanFilesConcurrently(
+            tmpDir,
+            progress: progress,
+            onFile: (ent, bytes) {
+              byCat[StorageUsageCategoryKey.cache]!.add(bytes);
+              cacheSubs['tmp_cache']!.add(bytes);
+            },
+          );
         }
       } catch (_) {
         // If listing fails for any reason, fall back to 0s; UI will show load failed.
@@ -408,10 +417,12 @@ abstract final class StorageUsageService {
     final clearable = StorageUsageStats(
       fileCount:
           byCat[StorageUsageCategoryKey.cache]!.fileCount +
-          byCat[StorageUsageCategoryKey.logs]!.fileCount,
+          byCat[StorageUsageCategoryKey.logs]!.fileCount +
+          byCat[StorageUsageCategoryKey.sandbox]!.fileCount,
       bytes:
           byCat[StorageUsageCategoryKey.cache]!.bytes +
-          byCat[StorageUsageCategoryKey.logs]!.bytes,
+          byCat[StorageUsageCategoryKey.logs]!.bytes +
+          byCat[StorageUsageCategoryKey.sandbox]!.bytes,
     );
 
     final categories = <StorageUsageCategory>[
@@ -547,11 +558,72 @@ abstract final class StorageUsageService {
     );
 
     return StorageUsageReport(
-      totalBytes: totalBytes,
-      totalFiles: totalFiles,
+      totalBytes: progress.bytes,
+      totalFiles: progress.files,
       clearable: clearable,
       categories: categories,
     );
+  }
+
+  /// Streams every file under [dir] recursively, resolving sizes in bounded
+  /// batches of [_scanBatchSize] so huge trees (e.g. sandbox rootfs with tens
+  /// of thousands of files) do not flood the event loop with concurrent IO
+  /// requests. [onFile] is called once per file with its byte size (0 when
+  /// stat fails); running totals are emitted after every batch through
+  /// [progress].
+  static Future<void> _scanFilesConcurrently(
+    Directory dir, {
+    required void Function(File file, int bytes) onFile,
+    required _ScanProgress progress,
+  }) async {
+    var batch = <File>[];
+    await for (final ent in dir.list(recursive: true, followLinks: false)) {
+      if (ent is! File) continue;
+      batch.add(ent);
+      if (batch.length >= _scanBatchSize) {
+        await _resolveScanBatch(batch, onFile, progress);
+        batch = <File>[];
+      }
+    }
+    if (batch.isNotEmpty) {
+      await _resolveScanBatch(batch, onFile, progress);
+    }
+  }
+
+  static const _scanBatchSize = 32;
+
+  static Future<void> _resolveScanBatch(
+    List<File> batch,
+    void Function(File file, int bytes) onFile,
+    _ScanProgress progress,
+  ) async {
+    final sizes = await Future.wait([
+      for (final f in batch) f.length().catchError((_) => 0),
+    ]);
+    for (var i = 0; i < batch.length; i++) {
+      progress.files += 1;
+      progress.bytes += sizes[i];
+      onFile(batch[i], sizes[i]);
+    }
+    progress.onEmit(progress.files, progress.bytes);
+  }
+
+  /// Categorizes a workspace tree entry: per-workspace Linux sandboxes
+  /// (.sandbox: rootfs, tmp, staged dependency archives) are counted
+  /// separately so they can be cleared; everything else under a workspace
+  /// is user files.
+  static void _addWorkspaceEntry(
+    List<String> parts,
+    int bytes,
+    Map<StorageUsageCategoryKey, _MutableStats> byCat,
+    Map<String, _MutableStats> sandboxSubs,
+  ) {
+    if (parts.any((part) => part.toLowerCase() == '.sandbox')) {
+      byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+      sandboxSubs['sandbox_per_ws']!.add(bytes);
+    } else {
+      byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
+    }
   }
 
   static Future<void> clearCache({required bool avatarsOnly}) async {
@@ -803,6 +875,14 @@ abstract final class StorageUsageService {
       }
     } catch (_) {}
   }
+}
+
+class _ScanProgress {
+  _ScanProgress(this.onEmit);
+
+  final void Function(int files, int bytes) onEmit;
+  int files = 0;
+  int bytes = 0;
 }
 
 class _MutableStats {

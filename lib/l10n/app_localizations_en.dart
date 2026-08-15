@@ -281,6 +281,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Sandbox cleared. The shared runtime will be removed after the app restarts.';
 
   @override
+  String get storageSpaceScanning => 'Scanning…';
+
+  @override
+  String storageSpaceScanningProgress(Object files, Object size) {
+    return 'Scanning… $files files, $size';
+  }
+
+  @override
   String get storageSpaceViewLogsButton => 'View Logs';
 
   @override

@@ -4,6 +4,7 @@ import '../../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/providers/workspace_provider.dart';
 import '../../model/pages/default_model_page.dart';
 import '../../provider/pages/providers_page.dart';
 import 'display_settings_page.dart';
@@ -531,7 +532,13 @@ class _ChatStorageSummaryState extends State<_ChatStorageSummary> {
   @override
   void initState() {
     super.initState();
-    _future = StorageUsageService.computeReport();
+    final wp = context.read<WorkspaceProvider>();
+    _future = StorageUsageService.computeReport(
+      workspaceHostPaths: [
+        for (final w in wp.workspaces)
+          if (wp.hostPathFor(w) case final host?) host,
+      ],
+    );
   }
 
   @override

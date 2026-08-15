@@ -133,6 +133,8 @@
   "storageSpaceClearLogsButton": "Clear Logs",
   "storageSpaceClearSandboxButton": "Clear Sandbox",
   "storageSpaceSandboxClearPartialDone": "Sandbox cleared. The shared runtime will be removed after the app restarts.",
+  "storageSpaceScanning": "Scanning…",
+  "storageSpaceScanningProgress": "Scanning… {files} files, {size}",
   "storageSpaceViewLogsButton": "View Logs",
   "storageSpaceDeleteConfirmTitle": "Confirm deletion",
   "storageSpaceDeleteSimpleConfirm": "Delete {count} items?",

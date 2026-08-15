@@ -592,6 +592,18 @@ abstract class AppLocalizations {
   /// **'Sandbox cleared. The shared runtime will be removed after the app restarts.'**
   String get storageSpaceSandboxClearPartialDone;
 
+  /// No description provided for @storageSpaceScanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning…'**
+  String get storageSpaceScanning;
+
+  /// No description provided for @storageSpaceScanningProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning… {files} files, {size}'**
+  String storageSpaceScanningProgress(Object files, Object size);
+
   /// No description provided for @storageSpaceViewLogsButton.
   ///
   /// In en, this message translates to:

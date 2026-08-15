@@ -81,6 +81,8 @@
   "storageSpaceClearLogsButton": "清理日誌",
   "storageSpaceClearSandboxButton": "清除沙箱",
   "storageSpaceSandboxClearPartialDone": "沙箱已清除。共享執行環境將在應用程式重新啟動後移除。",
+  "storageSpaceScanning": "掃描中…",
+  "storageSpaceScanningProgress": "掃描中… 已掃描 {files} 個檔案，{size}",
   "storageSpaceViewLogsButton": "查看日誌",
   "storageSpaceDeleteConfirmTitle": "確認刪除",
   "storageSpaceDeleteSimpleConfirm": "刪除 {count} 個項目？",

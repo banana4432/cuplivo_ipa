@@ -271,6 +271,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get storageSpaceSandboxClearPartialDone => '沙箱已清除。共享运行时将在应用重启后移除。';
 
   @override
+  String get storageSpaceScanning => '扫描中…';
+
+  @override
+  String storageSpaceScanningProgress(Object files, Object size) {
+    return '扫描中… 已扫描 $files 个文件，$size';
+  }
+
+  @override
   String get storageSpaceViewLogsButton => '查看日志';
 
   @override
@@ -8251,6 +8259,14 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get storageSpaceSandboxClearPartialDone => '沙箱已清除。共享运行时将在应用重启后移除。';
+
+  @override
+  String get storageSpaceScanning => '扫描中…';
+
+  @override
+  String storageSpaceScanningProgress(Object files, Object size) {
+    return '扫描中… 已扫描 $files 个文件，$size';
+  }
 
   @override
   String get storageSpaceViewLogsButton => '查看日志';
@@ -16234,6 +16250,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get storageSpaceSandboxClearPartialDone =>
       '沙箱已清除。共享執行環境將在應用程式重新啟動後移除。';
+
+  @override
+  String get storageSpaceScanning => '掃描中…';
+
+  @override
+  String storageSpaceScanningProgress(Object files, Object size) {
+    return '掃描中… 已掃描 $files 個檔案，$size';
+  }
 
   @override
   String get storageSpaceViewLogsButton => '查看日誌';
