@@ -322,6 +322,30 @@ abstract class AppLocalizations {
   /// **'Assistants'**
   String get storageSpaceCategoryAssistantData;
 
+  /// No description provided for @storageSpaceCategoryWorkspaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspaces'**
+  String get storageSpaceCategoryWorkspaces;
+
+  /// No description provided for @storageSpaceCategorySkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get storageSpaceCategorySkills;
+
+  /// No description provided for @storageSpaceCategoryFonts.
+  ///
+  /// In en, this message translates to:
+  /// **'Fonts'**
+  String get storageSpaceCategoryFonts;
+
+  /// No description provided for @storageSpaceCategorySandbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Sandbox'**
+  String get storageSpaceCategorySandbox;
+
   /// No description provided for @storageSpaceCategoryCache.
   ///
   /// In en, this message translates to:
@@ -417,6 +441,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Images'**
   String get storageSpaceSubAssistantImages;
+
+  /// No description provided for @storageSpaceSubSandboxPerWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace sandboxes'**
+  String get storageSpaceSubSandboxPerWorkspace;
+
+  /// No description provided for @storageSpaceSubDescSandboxPerWorkspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-workspace Linux root filesystem and temp files; regenerated when dependencies are re-installed.'**
+  String get storageSpaceSubDescSandboxPerWorkspace;
+
+  /// No description provided for @storageSpaceSubSandboxSharedRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared sandbox runtime'**
+  String get storageSpaceSubSandboxSharedRuntime;
+
+  /// No description provided for @storageSpaceSubDescSandboxSharedRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared Linux sandbox runtime (iOS); re-created automatically.'**
+  String get storageSpaceSubDescSandboxSharedRuntime;
 
   /// No description provided for @storageSpaceSubCacheAvatars.
   ///
@@ -531,6 +579,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear Logs'**
   String get storageSpaceClearLogsButton;
+
+  /// No description provided for @storageSpaceClearSandboxButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Sandbox'**
+  String get storageSpaceClearSandboxButton;
+
+  /// No description provided for @storageSpaceSandboxClearPartialDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Sandbox cleared. The shared runtime will be removed after the app restarts.'**
+  String get storageSpaceSandboxClearPartialDone;
 
   /// No description provided for @storageSpaceViewLogsButton.
   ///

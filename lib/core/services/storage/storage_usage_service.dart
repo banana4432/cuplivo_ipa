@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../database/app_database.dart';
@@ -7,6 +8,7 @@ import '../../../utils/app_directories.dart';
 import '../../../utils/avatar_cache.dart';
 import '../logging/flutter_logger.dart';
 import '../network/request_logger.dart';
+import '../workspace/linux_sandbox_service.dart';
 import 'ios_tmp_directory.dart';
 
 enum StorageUsageCategoryKey {
@@ -14,6 +16,10 @@ enum StorageUsageCategoryKey {
   files,
   chatData,
   assistantData,
+  workspaces,
+  skills,
+  fonts,
+  sandbox,
   cache,
   logs,
   other,
@@ -137,6 +143,11 @@ abstract final class StorageUsageService {
 
     final assistantSubs = <String, _MutableStats>{'avatars': _MutableStats()};
 
+    final sandboxSubs = <String, _MutableStats>{
+      'sandbox_per_ws': _MutableStats(),
+      'sandbox_shared_runtime': _MutableStats(),
+    };
+
     final cacheSubs = <String, _MutableStats>{
       'avatar_cache': _MutableStats(),
       'other_cache': _MutableStats(),
@@ -216,6 +227,29 @@ abstract final class StorageUsageService {
             byCat[StorageUsageCategoryKey.assistantData]!.add(bytes);
             assistantSubs['avatars']!.add(bytes);
             break;
+          case 'workspaces':
+            // Per-workspace Linux sandboxes (.sandbox: rootfs, tmp, staged
+            // dependency archives) are counted separately so they can be
+            // cleared; everything else under a workspace is user files.
+            if (parts.any((part) => part.toLowerCase() == '.sandbox')) {
+              byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+              sandboxSubs['sandbox_per_ws']!.add(bytes);
+            } else {
+              byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
+            }
+            break;
+          case 'skills':
+            byCat[StorageUsageCategoryKey.skills]!.add(bytes);
+            break;
+          case 'fonts':
+            byCat[StorageUsageCategoryKey.fonts]!.add(bytes);
+            break;
+          case 'linux-sandbox':
+            // Shared Linux sandbox runtime (Android; iOS lives outside the
+            // app data root and is scanned separately below).
+            byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+            sandboxSubs['sandbox_shared_runtime']!.add(bytes);
+            break;
           case 'images':
             // Inline/generated images are stored under appData/images.
             // Treat them as "Images" so users can manage them together.
@@ -247,6 +281,65 @@ abstract final class StorageUsageService {
       }
     } catch (_) {
       // If listing fails for any reason, fall back to 0s; UI will show load failed.
+    }
+
+    // Desktop workspaces root can be relocated (workspaces_dir_v1) to a
+    // location outside the app data root — the main scan above misses it
+    // entirely. Scan it separately, keeping the same .sandbox split.
+    final workspacesRoot = await AppDirectories.getWorkspacesRootDirectory();
+    if (!AppDirectories.isPathInside(workspacesRoot.path, root.path)) {
+      try {
+        if (await workspacesRoot.exists()) {
+          await for (final ent in workspacesRoot.list(
+            recursive: true,
+            followLinks: false,
+          )) {
+            if (ent is! File) continue;
+            int bytes = 0;
+            try {
+              bytes = await ent.length();
+            } catch (_) {
+              bytes = 0;
+            }
+            totalFiles += 1;
+            totalBytes += bytes;
+            final rel = p.relative(ent.path, from: workspacesRoot.path);
+            if (p.split(rel).any((part) => part.toLowerCase() == '.sandbox')) {
+              byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+              sandboxSubs['sandbox_per_ws']!.add(bytes);
+            } else {
+              byCat[StorageUsageCategoryKey.workspaces]!.add(bytes);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // iOS shared Linux sandbox runtime (iSH rootfs) lives in Application
+    // Support, outside the app data root (ADR-0029) — scan it separately.
+    final sandboxRuntime =
+        await AppDirectories.getLinuxSandboxRuntimeDirectory();
+    if (!AppDirectories.isPathInside(sandboxRuntime.path, root.path)) {
+      try {
+        if (await sandboxRuntime.exists()) {
+          await for (final ent in sandboxRuntime.list(
+            recursive: true,
+            followLinks: false,
+          )) {
+            if (ent is! File) continue;
+            int bytes = 0;
+            try {
+              bytes = await ent.length();
+            } catch (_) {
+              bytes = 0;
+            }
+            totalFiles += 1;
+            totalBytes += bytes;
+            byCat[StorageUsageCategoryKey.sandbox]!.add(bytes);
+            sandboxSubs['sandbox_shared_runtime']!.add(bytes);
+          }
+        }
+      } catch (_) {}
     }
 
     final avatarsDir = await AppDirectories.getAvatarsDirectory();
@@ -352,6 +445,36 @@ abstract final class StorageUsageService {
             stats: assistantSubs['avatars']!.toStats(),
             path: avatarsDir.path,
           ),
+        ],
+      ),
+      StorageUsageCategory(
+        key: StorageUsageCategoryKey.workspaces,
+        stats: byCat[StorageUsageCategoryKey.workspaces]!.toStats(),
+      ),
+      StorageUsageCategory(
+        key: StorageUsageCategoryKey.skills,
+        stats: byCat[StorageUsageCategoryKey.skills]!.toStats(),
+      ),
+      StorageUsageCategory(
+        key: StorageUsageCategoryKey.fonts,
+        stats: byCat[StorageUsageCategoryKey.fonts]!.toStats(),
+      ),
+      StorageUsageCategory(
+        key: StorageUsageCategoryKey.sandbox,
+        stats: byCat[StorageUsageCategoryKey.sandbox]!.toStats(),
+        subcategories: [
+          StorageUsageSubcategory(
+            id: 'sandbox_per_ws',
+            stats: sandboxSubs['sandbox_per_ws']!.toStats(),
+            path: workspacesRoot.path,
+          ),
+          if (sandboxSubs['sandbox_shared_runtime']!.bytes > 0 ||
+              sandboxSubs['sandbox_shared_runtime']!.fileCount > 0)
+            StorageUsageSubcategory(
+              id: 'sandbox_shared_runtime',
+              stats: sandboxSubs['sandbox_shared_runtime']!.toStats(),
+              path: sandboxRuntime.path,
+            ),
         ],
       ),
       StorageUsageCategory(
@@ -514,6 +637,52 @@ abstract final class StorageUsageService {
     }
   }
 
+  /// Clears the Linux sandbox: every managed workspace's `.sandbox` directory
+  /// (rootfs, tmp, staged dependency archives — all regenerable by
+  /// re-installing dependencies) plus the shared runtime. Workspace user
+  /// files are never touched.
+  ///
+  /// Returns true when the shared runtime was kept because the iOS iSH kernel
+  /// is booted (deleting a live fakefs mount would corrupt the guest; it is
+  /// removed on a later clear after relaunch, mirroring
+  /// ChatService.clearAllData).
+  static Future<bool> clearSandbox({
+    required List<String> workspaceHostPaths,
+  }) async {
+    for (final host in workspaceHostPaths) {
+      final sandboxDir = Directory(p.join(host, '.sandbox'));
+      if (!await sandboxDir.exists()) continue;
+      try {
+        await sandboxDir.delete(recursive: true);
+      } catch (e) {
+        debugPrint(
+          'StorageUsageService.clearSandbox: failed to delete '
+          '$host/.sandbox: $e',
+        );
+      }
+    }
+
+    final runtime = await AppDirectories.getLinuxSandboxRuntimeDirectory();
+    if (!await runtime.exists()) return false;
+    if (Platform.isIOS &&
+        await LinuxSandboxService.instance.isIosKernelBooted()) {
+      debugPrint(
+        'StorageUsageService.clearSandbox: iOS sandbox kernel booted; '
+        'keeping shared runtime until relaunch',
+      );
+      return true;
+    }
+    try {
+      await runtime.delete(recursive: true);
+    } catch (e) {
+      debugPrint(
+        'StorageUsageService.clearSandbox: failed to delete shared '
+        'runtime ${runtime.path}: $e',
+      );
+    }
+    return false;
+  }
+
   static Future<List<StorageFileEntry>> listUploadEntries({
     required bool images,
   }) async {
@@ -653,6 +822,10 @@ const List<StorageUsageCategoryKey> _categoryOrder = <StorageUsageCategoryKey>[
   StorageUsageCategoryKey.files,
   StorageUsageCategoryKey.chatData,
   StorageUsageCategoryKey.assistantData,
+  StorageUsageCategoryKey.workspaces,
+  StorageUsageCategoryKey.skills,
+  StorageUsageCategoryKey.fonts,
+  StorageUsageCategoryKey.sandbox,
   StorageUsageCategoryKey.cache,
   StorageUsageCategoryKey.logs,
   StorageUsageCategoryKey.deletedRecords,

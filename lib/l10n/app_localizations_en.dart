@@ -129,6 +129,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storageSpaceCategoryAssistantData => 'Assistants';
 
   @override
+  String get storageSpaceCategoryWorkspaces => 'Workspaces';
+
+  @override
+  String get storageSpaceCategorySkills => 'Skills';
+
+  @override
+  String get storageSpaceCategoryFonts => 'Fonts';
+
+  @override
+  String get storageSpaceCategorySandbox => 'Sandbox';
+
+  @override
   String get storageSpaceCategoryCache => 'Cache';
 
   @override
@@ -179,6 +191,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storageSpaceSubAssistantImages => 'Images';
+
+  @override
+  String get storageSpaceSubSandboxPerWorkspace => 'Workspace sandboxes';
+
+  @override
+  String get storageSpaceSubDescSandboxPerWorkspace =>
+      'Per-workspace Linux root filesystem and temp files; regenerated when dependencies are re-installed.';
+
+  @override
+  String get storageSpaceSubSandboxSharedRuntime => 'Shared sandbox runtime';
+
+  @override
+  String get storageSpaceSubDescSandboxSharedRuntime =>
+      'Shared Linux sandbox runtime (iOS); re-created automatically.';
 
   @override
   String get storageSpaceSubCacheAvatars => 'Avatar cache';
@@ -246,6 +272,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storageSpaceClearLogsButton => 'Clear Logs';
+
+  @override
+  String get storageSpaceClearSandboxButton => 'Clear Sandbox';
+
+  @override
+  String get storageSpaceSandboxClearPartialDone =>
+      'Sandbox cleared. The shared runtime will be removed after the app restarts.';
 
   @override
   String get storageSpaceViewLogsButton => 'View Logs';

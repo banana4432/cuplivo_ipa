@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:Cuplivo/core/database/app_database.dart';
 import 'package:Cuplivo/core/services/storage/storage_usage_service.dart';
@@ -203,5 +205,162 @@ void main() {
     await StorageUsageService.clearTmpCache();
 
     expect(await tmp.list().toList(), hasLength(1));
+  });
+
+  test(
+    'workspace user files and .sandbox are split into separate categories',
+    () async {
+      final wsDir = Directory(p.join(appDataDir.path, 'workspaces', 'default'));
+      await Directory(p.join(wsDir.path, 'docs')).create(recursive: true);
+      await Directory(
+        p.join(wsDir.path, '.sandbox', 'linux', 'bin'),
+      ).create(recursive: true);
+      await _writeSizedFile(wsDir, 'notes.txt', 50);
+      await _writeSizedFile(
+        Directory(p.join(wsDir.path, 'docs')),
+        'plan.md',
+        30,
+      );
+      await _writeSizedFile(
+        Directory(p.join(wsDir.path, '.sandbox', 'linux', 'bin')),
+        'sh',
+        100,
+      );
+      await _writeSizedFile(
+        Directory(p.join(wsDir.path, '.sandbox')),
+        'download.tar.gz',
+        200,
+      );
+
+      final report = await StorageUsageService.computeReport();
+      final ws = report.categories.singleWhere(
+        (category) => category.key == StorageUsageCategoryKey.workspaces,
+      );
+      final sandbox = report.categories.singleWhere(
+        (category) => category.key == StorageUsageCategoryKey.sandbox,
+      );
+
+      expect(ws.stats.bytes, 80);
+      expect(ws.stats.fileCount, 2);
+      expect(sandbox.stats.bytes, 300);
+      expect(
+        sandbox.subcategories
+            .singleWhere((subcategory) => subcategory.id == 'sandbox_per_ws')
+            .stats
+            .bytes,
+        300,
+      );
+      expect(
+        sandbox.subcategories.where(
+          (subcategory) => subcategory.id == 'sandbox_shared_runtime',
+        ),
+        isEmpty,
+      );
+      expect(report.totalBytes, 380);
+    },
+  );
+
+  test('skills and fonts are counted in their own categories', () async {
+    await Directory(p.join(appDataDir.path, 'skills')).create(recursive: true);
+    await Directory(p.join(appDataDir.path, 'fonts')).create(recursive: true);
+    await _writeSizedFile(
+      Directory(p.join(appDataDir.path, 'skills')),
+      'skill.md',
+      10,
+    );
+    await _writeSizedFile(
+      Directory(p.join(appDataDir.path, 'fonts')),
+      'custom.ttf',
+      20,
+    );
+
+    final report = await StorageUsageService.computeReport();
+
+    expect(
+      report.categories
+          .singleWhere(
+            (category) => category.key == StorageUsageCategoryKey.skills,
+          )
+          .stats
+          .bytes,
+      10,
+    );
+    expect(
+      report.categories
+          .singleWhere(
+            (category) => category.key == StorageUsageCategoryKey.fonts,
+          )
+          .stats
+          .bytes,
+      20,
+    );
+  });
+
+  test(
+    'relocated workspaces root outside app data is counted without double-count',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      final custom = Directory(p.join(tempDir.path, 'custom-ws'));
+      await Directory(
+        p.join(custom.path, 'default', '.sandbox', 'linux', 'bin'),
+      ).create(recursive: true);
+      await _writeSizedFile(
+        Directory(p.join(custom.path, 'default')),
+        'notes.txt',
+        50,
+      );
+      await _writeSizedFile(
+        Directory(p.join(custom.path, 'default', '.sandbox', 'linux', 'bin')),
+        'sh',
+        100,
+      );
+      SharedPreferences.setMockInitialValues({
+        'workspaces_dir_v1': custom.path,
+      });
+
+      final report = await StorageUsageService.computeReport();
+      final ws = report.categories.singleWhere(
+        (category) => category.key == StorageUsageCategoryKey.workspaces,
+      );
+      final sandbox = report.categories.singleWhere(
+        (category) => category.key == StorageUsageCategoryKey.sandbox,
+      );
+
+      expect(ws.stats.bytes, 50);
+      expect(sandbox.stats.bytes, 100);
+      expect(report.totalBytes, 150);
+    },
+  );
+
+  test(
+    'clearSandbox removes per-workspace .sandbox and shared runtime',
+    () async {
+      final wsDir = Directory(p.join(appDataDir.path, 'workspaces', 'default'));
+      final sandboxDir = Directory(
+        p.join(wsDir.path, '.sandbox', 'linux', 'bin'),
+      );
+      await sandboxDir.create(recursive: true);
+      await _writeSizedFile(sandboxDir, 'sh', 10);
+      final runtime = Directory(p.join(appDataDir.path, 'linux-sandbox'));
+      await runtime.create(recursive: true);
+      await _writeSizedFile(runtime, 'meta.db', 5);
+
+      await StorageUsageService.clearSandbox(workspaceHostPaths: [wsDir.path]);
+
+      expect(await Directory(p.join(wsDir.path, '.sandbox')).exists(), isFalse);
+      expect(await runtime.exists(), isFalse);
+    },
+  );
+
+  test('clearSandbox keeps workspace user files', () async {
+    final wsDir = Directory(p.join(appDataDir.path, 'workspaces', 'default'));
+    await wsDir.create(recursive: true);
+    await _writeSizedFile(wsDir, 'notes.txt', 50);
+
+    await StorageUsageService.clearSandbox(workspaceHostPaths: [wsDir.path]);
+
+    expect(await File(p.join(wsDir.path, 'notes.txt')).exists(), isTrue);
   });
 }
