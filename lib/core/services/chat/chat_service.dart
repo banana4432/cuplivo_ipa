@@ -1909,7 +1909,6 @@ class ChatService extends ChangeNotifier {
 
     final currentOriginal = original;
     final currentConversation = convo;
-    if (currentOriginal == null || currentConversation == null) return null;
 
     final isDirectedTree = currentConversation.activeMessageId != null;
     final directedPlacement = isDirectedTree
