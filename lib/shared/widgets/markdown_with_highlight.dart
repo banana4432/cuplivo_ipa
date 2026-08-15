@@ -615,17 +615,16 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
         for (final block in _stableBlocks) block,
         if (tail.isNotEmpty) buildMarkdownFor(tail, streaming: true),
       ];
-      // ListBody (not Column) on purpose: like the chat scroll view it gives
-      // children unbounded main-axis extent, so long streamed content never
-      // triggers a RenderFlex overflow assert in bounded-height contexts. The
-      // width is forced to fill like the non-streaming path (which receives a
-      // tight width from the chat bubble's CrossAxisAlignment.stretch).
-      final streamingColumn = SizedBox(
-        width: double.infinity,
-        child: ListBody(
-          key: const ValueKey('incremental-streaming-markdown'),
-          children: children,
-        ),
+      // _StreamingBlockColumn behaves like Column(mainAxisSize: min,
+      // crossAxisAlignment: stretch) but never asserts on overflow: like a
+      // single GptMarkdown (a RichText) it paints beyond its bounds instead
+      // of throwing a RenderFlex overflow error. This keeps long streamed
+      // content safe in bounded-height contexts (test viewports, the
+      // constrained thinking-card preview) while the chat scroll view sizes
+      // it naturally.
+      final streamingColumn = _StreamingBlockColumn(
+        key: const ValueKey('incremental-streaming-markdown'),
+        children: children,
       );
       final streamingResult = appFontFamily.isEmpty
           ? streamingColumn
@@ -898,6 +897,73 @@ List<int> stableBlockBoundaries(String text) {
     i++;
   }
   return boundaries;
+}
+
+/// Vertical column used for the streaming block list.
+///
+/// Semantically identical to `Column(mainAxisSize: min,
+/// crossAxisAlignment: stretch)` but it never asserts on overflow: like a
+/// single GptMarkdown (a RichText) it paints content beyond its bounds
+/// instead of throwing a RenderFlex overflow error. Long streamed content is
+/// therefore safe in bounded-height contexts (widget-test viewports, the
+/// constrained thinking-card preview) while the chat scroll view sizes it
+/// naturally.
+class _StreamingBlockColumn extends MultiChildRenderObjectWidget {
+  const _StreamingBlockColumn({super.key, required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderStreamingBlockColumn();
+  }
+}
+
+class _StreamingBlockParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderStreamingBlockColumn extends RenderBox
+    with ContainerRenderObjectMixin<RenderBox, _StreamingBlockParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _StreamingBlockParentData> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _StreamingBlockParentData) {
+      child.parentData = _StreamingBlockParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    var y = 0.0;
+    var maxWidth = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      child.layout(
+        BoxConstraints(
+          minWidth: constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : 0.0,
+          maxWidth: constraints.maxWidth,
+          minHeight: 0.0,
+          maxHeight: double.infinity,
+        ),
+        parentUsesSize: true,
+      );
+      final parentData = child.parentData! as _StreamingBlockParentData;
+      parentData.offset = Offset(0.0, y);
+      y += child.size.height;
+      if (child.size.width > maxWidth) maxWidth = child.size.width;
+      child = parentData.nextSibling;
+    }
+    size = constraints.constrain(Size(maxWidth, y));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
 }
 
 String _preprocessFences(
