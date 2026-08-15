@@ -209,7 +209,10 @@ void main() {
       expect(service.getMessages(conversation.id), hasLength(2));
       final convo = service.getConversation(conversation.id);
       expect(convo?.messageIds, contains(edited.id));
-      expect(service.getVersionSelections(conversation.id), {original.id: 1});
+      expect(
+        service.getVersionSelections(conversation.id),
+        {ConversationTree.rootGroupId(conversation.id): 1},
+      );
     });
 
     test(
@@ -240,7 +243,10 @@ void main() {
         expect(first?.version, 1);
         expect(second?.version, 2);
         expect(second?.groupId, ConversationTree.rootGroupId(conversation.id));
-        expect(service.getVersionSelections(conversation.id), {original.id: 2});
+        expect(
+        service.getVersionSelections(conversation.id),
+        {ConversationTree.rootGroupId(conversation.id): 2},
+      );
       },
     );
 
