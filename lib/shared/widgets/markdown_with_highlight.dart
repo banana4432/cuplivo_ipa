@@ -5612,10 +5612,11 @@ class _DetailsHtmlBlockState extends State<_DetailsHtmlBlock> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = Color.alphaBlend(
-      cs.onSurface.withValues(alpha: isDark ? 0.05 : 0.025),
-      cs.surface,
-    );
+    // Issue #298: use the same elevated surfaces as code blocks instead of
+    // blending with cs.surface — the blend resolves to a near-black block in
+    // dark themes (and pure-black backgrounds), clashing with the theme.
+    final blockColor = cs.surfaceContainer;
+    final headerColor = cs.surfaceContainerHighest;
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.18 : 0.30,
     );
@@ -5629,10 +5630,11 @@ class _DetailsHtmlBlockState extends State<_DetailsHtmlBlock> {
     final bodyConfig = widget.config.copyWith(style: bodyStyle);
 
     return Container(
+      key: const ValueKey('details-block'),
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: surface,
+        color: blockColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor, width: 0.8),
       ),
@@ -5641,33 +5643,37 @@ class _DetailsHtmlBlockState extends State<_DetailsHtmlBlock> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          IosCardPress(
-            onTap: () => setState(() => _expanded = !_expanded),
-            baseColor: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            haptics: false,
-            child: Row(
-              children: [
-                AnimatedRotation(
-                  turns: _expanded ? 0.25 : 0.0,
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    Lucide.ChevronRight,
-                    size: 15,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.78),
+          // Header row: slightly elevated header (mirrors code-block header).
+          Container(
+            color: headerColor,
+            child: IosCardPress(
+              onTap: () => setState(() => _expanded = !_expanded),
+              baseColor: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              haptics: false,
+              child: Row(
+                children: [
+                  AnimatedRotation(
+                    turns: _expanded ? 0.25 : 0.0,
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Lucide.ChevronRight,
+                      size: 15,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.78),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    widget.summary,
-                    style: summaryStyle,
-                    softWrap: true,
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      widget.summary,
+                      style: summaryStyle,
+                      softWrap: true,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           AnimatedSwitcher(
