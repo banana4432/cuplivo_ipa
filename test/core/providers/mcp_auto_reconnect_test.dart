@@ -65,6 +65,19 @@ Future<int> _freePort() async {
   return port;
 }
 
+/// Polls [predicate] until it returns true or [timeout] elapses.
+Future<bool> _waitUntil(
+  Future<bool> Function() predicate,
+  Duration timeout,
+) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (await predicate()) return true;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+  return predicate();
+}
+
 void main() {
   test(
     'an enabled server whose initial connect failed auto-reconnects once it '
@@ -76,6 +89,10 @@ void main() {
       final provider = McpProvider(
         contextProvider: () => throw UnimplementedError(),
       );
+      // Fail fast: mcp_client swallows transport errors, so a dead endpoint
+      // only surfaces after the request timeout (default 30s would make this
+      // test too slow). Each failed connect also retries 3x with 2s delays.
+      await provider.updateRequestTimeout(const Duration(milliseconds: 800));
       final id = await provider.addServer(
         enabled: true,
         name: 'Auto Reconnect',
@@ -86,23 +103,30 @@ void main() {
       );
       await pumpEventQueue();
 
-      // Phase 1: server is down — connect fails and the provider reports
-      // the error state (no tools available to the main agent).
+      // Phase 1: server is down — the initial connect fails and the provider
+      // lands in the error state (tools unavailable to the main agent).
+      final reachedError = await _waitUntil(
+        () async => provider.statusFor(id) == McpStatus.error,
+        const Duration(seconds: 12),
+      );
+      expect(
+        reachedError,
+        isTrue,
+        reason: 'connect to a dead endpoint should end in the error state',
+      );
       expect(provider.isConnected(id), isFalse);
-      expect(provider.statusFor(id), McpStatus.error);
 
       // Phase 2: server comes up (e.g. the network is restored). The
       // supervisor heartbeat must reconnect automatically without any
       // user action.
       final server = await _startMcpServer(port);
       try {
-        final deadline = DateTime.now().add(const Duration(seconds: 10));
-        while (DateTime.now().isBefore(deadline)) {
-          if (provider.isConnected(id)) break;
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-        }
+        final reconnected = await _waitUntil(
+          () async => provider.isConnected(id),
+          const Duration(seconds: 15),
+        );
         expect(
-          provider.isConnected(id),
+          reconnected,
           isTrue,
           reason: 'supervisor heartbeat should auto-reconnect the server',
         );
