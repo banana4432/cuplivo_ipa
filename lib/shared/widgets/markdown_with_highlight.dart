@@ -80,7 +80,9 @@ class MarkdownWithCodeHighlight extends StatefulWidget {
 class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
   // Issue #232: lowered from 8000 so math-heavy answers engage the render
   // debounce early. Below this, a full markdown re-parse per 50ms stream tick
-  // is cheap; above it, renders are coalesced to the 120ms cadence.
+  // is cheap; above it, renders are coalesced to the 120ms cadence. The
+  // debounce only keys off the LIVE TAIL length: committed stable blocks are
+  // cached and never re-parse (issue #334).
   static const int _streamingDebounceThresholdChars = 2000;
   static const Duration _streamingLongRenderDebounce = Duration(
     milliseconds: 120,
@@ -88,6 +90,23 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
 
   late String _renderText;
   Timer? _renderDebounce;
+
+  /// Cached widgets for committed stable markdown blocks (streaming only).
+  /// Each block is wrapped in a RepaintBoundary so later tokens never
+  /// re-parse, re-layout or re-paint it (issue #334). The cache is dropped
+  /// when the stream shrinks, a regex transform changes the committed
+  /// prefix, the theme changes, or streaming ends.
+  final List<Widget> _stableBlocks = <Widget>[];
+
+  /// End offset (in the normalized render text) of the committed prefix.
+  int _stableBlocksEnd = 0;
+
+  /// Normalized text of the committed prefix; used to detect rewrites.
+  String _stablePrefixText = '';
+
+  /// Theme key captured when the stable blocks were built; blocks are
+  /// invalidated when it changes so colors stay fresh.
+  String _stableThemeKey = '';
 
   @override
   void initState() {
@@ -112,9 +131,18 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
   }
 
   void _syncRenderText() {
-    if (!widget.streaming ||
-        widget.text.length < _streamingDebounceThresholdChars ||
-        widget.text.length < _renderText.length) {
+    if (!widget.streaming || widget.text.length < _renderText.length) {
+      _renderDebounce?.cancel();
+      _renderDebounce = null;
+      _renderText = widget.text;
+      return;
+    }
+    // Only the dynamic tail matters for the debounce: committed stable
+    // blocks are cached and never re-parse.
+    final boundaries = stableBlockBoundaries(widget.text);
+    final tailLength =
+        widget.text.length - (boundaries.isEmpty ? 0 : boundaries.last);
+    if (tailLength < _streamingDebounceThresholdChars) {
       _renderDebounce?.cancel();
       _renderDebounce = null;
       _renderText = widget.text;
@@ -125,6 +153,48 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
       if (!mounted) return;
       setState(() => _renderText = widget.text);
     });
+  }
+
+  /// Commits newly stable blocks (up to the last stable boundary of
+  /// [normalized]) as cached widgets and keeps the tail live. Clears the
+  /// cache when the committed prefix was rewritten (regex transforms,
+  /// stream shrink) or the theme changed.
+  void _syncStableBlocks(
+    String normalized, {
+    required String themeKey,
+    required Widget Function(String text, {required bool streaming}) builder,
+  }) {
+    if (_stableThemeKey != themeKey) {
+      _clearStableBlocks();
+      _stableThemeKey = themeKey;
+    }
+    if (_stableBlocksEnd > 0 && !normalized.startsWith(_stablePrefixText)) {
+      _clearStableBlocks();
+    }
+    final boundaries = stableBlockBoundaries(normalized);
+    if (boundaries.isEmpty) return;
+    final lastBoundary = boundaries.last;
+    if (lastBoundary < _stableBlocksEnd) {
+      _clearStableBlocks();
+    }
+    for (final boundary in boundaries) {
+      if (boundary <= _stableBlocksEnd) continue;
+      final blockText = normalized.substring(_stableBlocksEnd, boundary);
+      _stableBlocks.add(
+        RepaintBoundary(
+          key: ValueKey('stable-md-block-${_stableBlocks.length}'),
+          child: builder(blockText, streaming: false),
+        ),
+      );
+      _stableBlocksEnd = boundary;
+    }
+    _stablePrefixText = normalized.substring(0, _stableBlocksEnd);
+  }
+
+  void _clearStableBlocks() {
+    _stableBlocks.clear();
+    _stableBlocksEnd = 0;
+    _stablePrefixText = '';
   }
 
   @override
@@ -139,6 +209,13 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
       enableDollarLatex: settings.enableDollarLatex,
       streaming: widget.streaming,
     );
+    // Key that forces markdown rebuilds when theme colors or math toggles
+    // change; also used to invalidate cached stable blocks.
+    final markdownThemeKey =
+        '${Theme.of(context).brightness.index}-${cs.surface.toARGB32()}-'
+        '${cs.onSurface.toARGB32()}-${cs.primary.toARGB32()}-'
+        '${cs.outlineVariant.toARGB32()}-${settings.enableMathRendering}-'
+        '${settings.enableDollarLatex}';
     // Base text style (can be overridden by caller)
     final baseTextStyle =
         (widget.baseStyle ?? Theme.of(context).textTheme.bodyMedium)?.copyWith(
@@ -263,255 +340,295 @@ class _MarkdownWithCodeHighlightState extends State<MarkdownWithCodeHighlight> {
 
     final appFontFamily = resolveAppFont();
 
-    // Force rebuild of the markdown when key theme colors change to avoid stale styles
-    final markdownWidget = GptMarkdown(
-      key: ValueKey(
-        '${Theme.of(context).brightness.index}-${cs.surface.toARGB32()}-${cs.onSurface.toARGB32()}-${cs.primary.toARGB32()}-${cs.outlineVariant.toARGB32()}-${settings.enableMathRendering}-${settings.enableDollarLatex}',
-      ),
-      normalized,
-      style: baseTextStyle,
-      followLinkColor: true,
-      // Disable built-in $...$ LaTeX so our custom scrollable handlers take over
-      useDollarSignsForLatex: false,
-      streaming: widget.streaming,
-      onLinkTap: (url, title) => _handleLinkTap(context, url),
-      components: components,
-      inlineComponents: inlineComponents,
-      imageBuilder: (ctx, url, width, height) {
-        final imgs = imageUrls.isNotEmpty ? imageUrls : <String>[url];
-        final idx = imgs.indexOf(url);
-        final initial = idx >= 0 ? idx : 0;
-        final provider = _imageProviderFor(url);
-        return GestureDetector(
-          onTap: () {
-            Navigator.of(ctx).push(
-              PageRouteBuilder(
-                pageBuilder: (_, __, ___) =>
-                    ImageViewerPage(images: imgs, initialIndex: initial),
-                transitionDuration: const Duration(milliseconds: 360),
-                reverseTransitionDuration: const Duration(milliseconds: 280),
-                transitionsBuilder: (context, anim, sec, child) {
-                  final curved = CurvedAnimation(
-                    parent: anim,
-                    curve: Curves.easeOutCubic,
-                    reverseCurve: Curves.easeInCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curved,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.02),
-                        end: Offset.zero,
-                      ).animate(curved),
-                      child: child,
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: () {
-                  if (provider == null) {
-                    // Missing or unsupported source: show a broken image indicator
-                    return const Icon(Icons.broken_image);
-                  }
-                  return Image(
-                    image: provider,
-                    width: width ?? constraints.maxWidth,
-                    height: height,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stack) =>
-                        const Icon(Icons.broken_image),
-                  );
-                }(),
+    // Force rebuild of the markdown when key theme colors change to avoid
+    // stale styles. Extracted as a local builder so committed stable blocks
+    // (streaming) can be parsed once with `streaming: false` while the live
+    // tail keeps the streaming behavior (issue #334).
+    Widget buildMarkdownFor(String text, {required bool streaming}) {
+      return GptMarkdown(
+        key: ValueKey(
+          '$markdownThemeKey-${streaming ? 'stream' : 'final'}',
+        ),
+        text,
+        style: baseTextStyle,
+        followLinkColor: true,
+        // Disable built-in $...$ LaTeX so our custom scrollable handlers take over
+        useDollarSignsForLatex: false,
+        streaming: streaming,
+        onLinkTap: (url, title) => _handleLinkTap(context, url),
+        components: components,
+        inlineComponents: inlineComponents,
+        imageBuilder: (ctx, url, width, height) {
+          final imgs = imageUrls.isNotEmpty ? imageUrls : <String>[url];
+          final idx = imgs.indexOf(url);
+          final initial = idx >= 0 ? idx : 0;
+          final provider = _imageProviderFor(url);
+          return GestureDetector(
+            onTap: () {
+              Navigator.of(ctx).push(
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) =>
+                      ImageViewerPage(images: imgs, initialIndex: initial),
+                  transitionDuration: const Duration(milliseconds: 360),
+                  reverseTransitionDuration: const Duration(milliseconds: 280),
+                  transitionsBuilder: (context, anim, sec, child) {
+                    final curved = CurvedAnimation(
+                      parent: anim,
+                      curve: Curves.easeOutCubic,
+                      reverseCurve: Curves.easeInCubic,
+                    );
+                    return FadeTransition(
+                      opacity: curved,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.02),
+                          end: Offset.zero,
+                        ).animate(curved),
+                        child: child,
+                      ),
+                    );
+                  },
+                ),
               );
             },
-          ),
-        );
-      },
-      linkBuilder: (ctx, span, url, style) {
-        final label = span.toPlainText().trim();
-        // Special handling: [citation](index:id)
-        if (label.toLowerCase() == 'citation') {
-          final citation = _parseCitationRef(url);
-          if (citation != null) {
-            final cs = Theme.of(ctx).colorScheme;
-            return GestureDetector(
-              onTap: () {
-                if (widget.onCitationTap != null && citation.id.isNotEmpty) {
-                  widget.onCitationTap!(citation.id);
-                } else {
-                  // Fallback: do nothing
-                }
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: () {
+                    if (provider == null) {
+                      // Missing or unsupported source: show a broken image indicator
+                      return const Icon(Icons.broken_image);
+                    }
+                    return Image(
+                      image: provider,
+                      width: width ?? constraints.maxWidth,
+                      height: height,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stack) =>
+                          const Icon(Icons.broken_image),
+                    );
+                  }(),
+                );
               },
-              child: Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(10),
+            ),
+          );
+        },
+        linkBuilder: (ctx, span, url, style) {
+          final label = span.toPlainText().trim();
+          // Special handling: [citation](index:id)
+          if (label.toLowerCase() == 'citation') {
+            final citation = _parseCitationRef(url);
+            if (citation != null) {
+              final cs = Theme.of(ctx).colorScheme;
+              return GestureDetector(
+                onTap: () {
+                  if (widget.onCitationTap != null && citation.id.isNotEmpty) {
+                    widget.onCitationTap!(citation.id);
+                  } else {
+                    // Fallback: do nothing
+                  }
+                },
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    citation.indexText,
+                    style: TextStyle(fontSize: 12, height: 1.0),
+                  ),
                 ),
-                child: Text(
-                  citation.indexText,
-                  style: TextStyle(fontSize: 12, height: 1.0),
-                ),
+              );
+            }
+          }
+          // Default link appearance
+          final cs = Theme.of(ctx).colorScheme;
+          return Text(
+            span.toPlainText(),
+            style: style.copyWith(
+              color: cs.primary,
+              decoration: TextDecoration.none,
+            ),
+            textAlign: TextAlign.start,
+          );
+        },
+        orderedListBuilder: (ctx, no, child, cfg) {
+          final style = (cfg.style ?? TextStyle()).copyWith(
+            fontWeight: AppFontWeights.regular,
+          );
+          // Apply a soft compensation so when chat scale != 100%,
+          // list items don't visually feel larger/smaller than body text.
+          final double kListComp =
+              MarkdownWithCodeHighlight.kMarkdownListScaleCompensation;
+          final mediaQuery = MediaQuery.of(ctx);
+          final double s = mediaQuery.textScaler.scale(1);
+          final double comp = math.pow(s == 0 ? 1.0 : s, -kListComp).toDouble();
+          final double newScale = (s * comp).clamp(0.5, 3.0);
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: TextScaler.linear(newScale)),
+            child: Directionality(
+              textDirection: cfg.textDirection,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                textBaseline: TextBaseline.alphabetic,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 6, end: 6),
+                    child: Text("$no.", style: style),
+                  ),
+                  // Keep child as-is so it inherits context MediaQuery scaling once
+                  Flexible(child: child),
+                ],
               ),
+            ),
+          );
+        },
+        // Note: property name is unOrderedListBuilder (camel-cased with capital O)
+        // Signature in gpt_markdown 1.1.4: (BuildContext ctx, Widget child, GptMarkdownConfig cfg) -> Widget
+        // We compose the bullet + content here to control scaling/spacing.
+        unOrderedListBuilder: (ctx, child, cfg) {
+          final style = (cfg.style ?? TextStyle()).copyWith(
+            fontWeight: AppFontWeights.regular,
+          );
+          final double kListComp =
+              MarkdownWithCodeHighlight.kMarkdownListScaleCompensation;
+          final mediaQuery = MediaQuery.of(ctx);
+          final double s = mediaQuery.textScaler.scale(1);
+          final double comp = math.pow(s == 0 ? 1.0 : s, -kListComp).toDouble();
+          final double newScale = (s * comp).clamp(0.5, 3.0);
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: TextScaler.linear(newScale)),
+            child: Directionality(
+              textDirection: cfg.textDirection,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                textBaseline: TextBaseline.alphabetic,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 6, end: 6),
+                    child: Text('•', style: style),
+                  ),
+                  // Keep child untouched to follow context scaling exactly once
+                  Flexible(child: child),
+                ],
+              ),
+            ),
+          );
+        },
+        tableBuilder: (ctx, rows, style, cfg) {
+          return _MarkdownTableBlock(
+            rows: _MarkdownTableData.fromRows(
+              rows,
+              maxBodyRows: streaming
+                  ? MarkdownWithCodeHighlight._streamingTableMaxRows
+                  : null,
+            ),
+            style: style,
+            config: cfg,
+            appFontFamily: appFontFamily.isEmpty ? null : appFontFamily,
+          );
+        },
+        // Inline `code` styling via highlightBuilder in gpt_markdown
+        highlightBuilder: (ctx, inline, style) {
+          // Unmask dollar signs that were protected during preprocessing
+          String unmasked = inline.replaceAll(_codeDollarMask, r'$');
+          String softened = _softBreakInline(unmasked);
+          final bool isDarkCtx = Theme.of(ctx).brightness == Brightness.dark;
+          final csCtx = Theme.of(ctx).colorScheme;
+          final bg = isDarkCtx ? Colors.white12 : const Color(0xFFF1F3F5);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: csCtx.outlineVariant.withValues(alpha: 0.22),
+              ),
+            ),
+            child: Text(
+              softened,
+              style: TextStyle(
+                fontFamily: codeFontFamily,
+                fontSize: 13,
+                height: 1.4,
+              ).copyWith(color: csCtx.onSurface),
+              softWrap: true,
+              overflow: TextOverflow.visible,
+            ),
+          );
+        },
+        // Fenced code block styling via codeBuilder (with collapse/expand)
+        codeBuilder: (ctx, name, code, closed) {
+          final lang = name.trim();
+          final restoredCode = _unmaskHtmlTagStartsInsideFencedCode(code);
+          if (lang.toLowerCase() == 'mermaid') {
+            return _MermaidBlock(
+              code: restoredCode,
+              streaming: streaming && !closed,
+            );
+          } else if (lang.toLowerCase() == 'plantuml') {
+            return PlantUMLBlock(code: restoredCode);
+          } else if (lang.toLowerCase() == 'svg') {
+            return SvgPreviewBlock(
+              code: restoredCode,
+              streaming: streaming && !closed,
+            );
+          } else if (_isHtml(lang)) {
+            return HtmlPreviewBlock(
+              code: restoredCode,
+              streaming: streaming && !closed,
             );
           }
-        }
-        // Default link appearance
-        final cs = Theme.of(ctx).colorScheme;
-        return Text(
-          span.toPlainText(),
-          style: style.copyWith(
-            color: cs.primary,
-            decoration: TextDecoration.none,
-          ),
-          textAlign: TextAlign.start,
-        );
-      },
-      orderedListBuilder: (ctx, no, child, cfg) {
-        final style = (cfg.style ?? TextStyle()).copyWith(
-          fontWeight: AppFontWeights.regular,
-        );
-        // Apply a soft compensation so when chat scale != 100%,
-        // list items don't visually feel larger/smaller than body text.
-        final double kListComp =
-            MarkdownWithCodeHighlight.kMarkdownListScaleCompensation;
-        final mediaQuery = MediaQuery.of(ctx);
-        final double s = mediaQuery.textScaler.scale(1);
-        final double comp = math.pow(s == 0 ? 1.0 : s, -kListComp).toDouble();
-        final double newScale = (s * comp).clamp(0.5, 3.0);
-        return MediaQuery(
-          data: mediaQuery.copyWith(textScaler: TextScaler.linear(newScale)),
-          child: Directionality(
-            textDirection: cfg.textDirection,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              textBaseline: TextBaseline.alphabetic,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              children: [
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 6, end: 6),
-                  child: Text("$no.", style: style),
-                ),
-                // Keep child as-is so it inherits context MediaQuery scaling once
-                Flexible(child: child),
-              ],
-            ),
-          ),
-        );
-      },
-      // Note: property name is unOrderedListBuilder (camel-cased with capital O)
-      // Signature in gpt_markdown 1.1.4: (BuildContext ctx, Widget child, GptMarkdownConfig cfg) -> Widget
-      // We compose the bullet + content here to control scaling/spacing.
-      unOrderedListBuilder: (ctx, child, cfg) {
-        final style = (cfg.style ?? TextStyle()).copyWith(
-          fontWeight: AppFontWeights.regular,
-        );
-        final double kListComp =
-            MarkdownWithCodeHighlight.kMarkdownListScaleCompensation;
-        final mediaQuery = MediaQuery.of(ctx);
-        final double s = mediaQuery.textScaler.scale(1);
-        final double comp = math.pow(s == 0 ? 1.0 : s, -kListComp).toDouble();
-        final double newScale = (s * comp).clamp(0.5, 3.0);
-        return MediaQuery(
-          data: mediaQuery.copyWith(textScaler: TextScaler.linear(newScale)),
-          child: Directionality(
-            textDirection: cfg.textDirection,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              textBaseline: TextBaseline.alphabetic,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              children: [
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 6, end: 6),
-                  child: Text('•', style: style),
-                ),
-                // Keep child untouched to follow context scaling exactly once
-                Flexible(child: child),
-              ],
-            ),
-          ),
-        );
-      },
-      tableBuilder: (ctx, rows, style, cfg) {
-        return _MarkdownTableBlock(
-          rows: _MarkdownTableData.fromRows(
-            rows,
-            maxBodyRows: widget.streaming
-                ? MarkdownWithCodeHighlight._streamingTableMaxRows
-                : null,
-          ),
-          style: style,
-          config: cfg,
-          appFontFamily: appFontFamily.isEmpty ? null : appFontFamily,
-        );
-      },
-      // Inline `code` styling via highlightBuilder in gpt_markdown
-      highlightBuilder: (ctx, inline, style) {
-        // Unmask dollar signs that were protected during preprocessing
-        String unmasked = inline.replaceAll(_codeDollarMask, r'$');
-        String softened = _softBreakInline(unmasked);
-        final bool isDarkCtx = Theme.of(ctx).brightness == Brightness.dark;
-        final csCtx = Theme.of(ctx).colorScheme;
-        final bg = isDarkCtx ? Colors.white12 : const Color(0xFFF1F3F5);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: csCtx.outlineVariant.withValues(alpha: 0.22),
-            ),
-          ),
-          child: Text(
-            softened,
-            style: TextStyle(
-              fontFamily: codeFontFamily,
-              fontSize: 13,
-              height: 1.4,
-            ).copyWith(color: csCtx.onSurface),
-            softWrap: true,
-            overflow: TextOverflow.visible,
-          ),
-        );
-      },
-      // Fenced code block styling via codeBuilder (with collapse/expand)
-      codeBuilder: (ctx, name, code, closed) {
-        final lang = name.trim();
-        final restoredCode = _unmaskHtmlTagStartsInsideFencedCode(code);
-        if (lang.toLowerCase() == 'mermaid') {
-          return _MermaidBlock(
+          return _CollapsibleCodeBlock(
+            language: lang,
             code: restoredCode,
-            streaming: widget.streaming && !closed,
+            streaming: streaming,
+            closed: closed,
           );
-        } else if (lang.toLowerCase() == 'plantuml') {
-          return PlantUMLBlock(code: restoredCode);
-        } else if (lang.toLowerCase() == 'svg') {
-          return SvgPreviewBlock(
-            code: restoredCode,
-            streaming: widget.streaming && !closed,
-          );
-        } else if (_isHtml(lang)) {
-          return HtmlPreviewBlock(
-            code: restoredCode,
-            streaming: widget.streaming && !closed,
-          );
-        }
-        return _CollapsibleCodeBlock(
-          language: lang,
-          code: restoredCode,
-          streaming: widget.streaming,
-          closed: closed,
-        );
-      },
+        },
+      );
+
+    }
+
+    final markdownWidget = buildMarkdownFor(
+      normalized,
+      streaming: widget.streaming,
     );
+
+    // Streaming: render committed stable blocks from the cache plus the
+    // still-growing tail. Committed blocks are wrapped in RepaintBoundary
+    // and never re-parsed or re-laid-out by later tokens (issue #334).
+    if (widget.streaming) {
+      _syncStableBlocks(
+        normalized,
+        themeKey: markdownThemeKey,
+        builder: buildMarkdownFor,
+      );
+      final tail = normalized.substring(_stableBlocksEnd);
+      final children = <Widget>[
+        for (final block in _stableBlocks) block,
+        if (tail.isNotEmpty) buildMarkdownFor(tail, streaming: true),
+      ];
+      final streamingColumn = Column(
+        key: const ValueKey('incremental-streaming-markdown'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      );
+      final streamingResult = appFontFamily.isEmpty
+          ? streamingColumn
+          : DefaultTextStyle.merge(
+              style: TextStyle(fontFamily: appFontFamily),
+              child: streamingColumn,
+            );
+      return streamingResult;
+    }
 
     final result = appFontFamily.isEmpty
         ? markdownWidget
@@ -632,6 +749,149 @@ String? _normalizeLanguage(String? lang) {
     default:
       return l; // try as-is
   }
+}
+
+/// Kind of the block currently being built while scanning for stable
+/// boundaries.
+enum _StreamingBlockKind { none, list, quote }
+
+/// Computes offsets where streamed markdown can be cut into stable blocks.
+///
+/// A boundary is a position right after a blank-line run where the preceding
+/// content can no longer change semantically:
+/// - never inside a fenced code block (``` / ~~~);
+/// - never inside a block math block ($$...$$ or \[...\]);
+/// - never inside an HTML `<details>` block;
+/// - not when the next non-blank line could continue the previous block
+///   (indented lazy continuation, or a same-kind list/quote marker after a
+///   blank line), and not when an indented code block could appear.
+///
+/// The last returned offset is the start of the still-growing dynamic tail.
+/// The function is pure and O(lines) so it can run every stream tick.
+List<int> stableBlockBoundaries(String text) {
+  if (text.isEmpty) return const <int>[];
+  final lines = text.split('\n');
+  final starts = List<int>.filled(lines.length, 0);
+  var acc = 0;
+  for (var i = 0; i < lines.length; i++) {
+    starts[i] = acc;
+    acc += lines[i].length + 1;
+  }
+
+  final boundaries = <int>[];
+  var fenceMarker = '';
+  var fenceOpenLen = 0;
+  var mathOpener = ''; // '', '$$' or r'\[' while inside block math
+  var detailsDepth = 0;
+  var blockKind = _StreamingBlockKind.none;
+  var seenContent = false;
+  final listRe = RegExp(r'^([-*+]|\d{1,9}[.)])\s+');
+  final fenceOpenRe = RegExp(r'^[ \t]*([`~])\1{2,}');
+  final detailsOpenRe = RegExp(r'<details\b', caseSensitive: false);
+  final detailsCloseRe = RegExp(r'</details\s*>', caseSensitive: false);
+
+  var i = 0;
+  while (i < lines.length) {
+    final line = lines[i];
+    final trimmed = line.trim();
+
+    if (trimmed.isEmpty) {
+      var runEnd = i;
+      while (runEnd < lines.length && lines[runEnd].trim().isEmpty) {
+        runEnd++;
+      }
+      final prevBlockKind = blockKind;
+      var safe = fenceMarker.isEmpty && mathOpener.isEmpty && detailsDepth == 0;
+      if (safe && runEnd < lines.length) {
+        final nextLine = lines[runEnd];
+        final nextTrimmed = nextLine.trimLeft();
+        final indent = nextLine.length - nextTrimmed.length;
+        final nextStartsList = listRe.hasMatch(nextTrimmed);
+        final nextStartsQuote = nextTrimmed.startsWith('>');
+        if (indent >= 4) {
+          // Could become an indented code block; keep it in the tail.
+          safe = false;
+        } else if ((prevBlockKind == _StreamingBlockKind.list ||
+                prevBlockKind == _StreamingBlockKind.quote) &&
+            (indent >= 2 || nextStartsList || nextStartsQuote)) {
+          // Lazy continuation of a list/quote across the blank line.
+          safe = false;
+        }
+      }
+      // Only commit when the blank run is followed by more content: a
+      // trailing newline at the stream edge may simply be the current chunk
+      // boundary, and committing there would freeze a block that later
+      // tokens could still extend (soft line breaks, growing table rows).
+      if (safe && seenContent && runEnd < lines.length) {
+        boundaries.add(starts[runEnd]);
+      }
+      blockKind = _StreamingBlockKind.none;
+      i = runEnd;
+      continue;
+    }
+
+    seenContent = true;
+
+    if (fenceMarker.isNotEmpty) {
+      final closeRe = RegExp(
+        '^[ \\t]*${RegExp.escape(fenceMarker) * fenceOpenLen}'
+        '${RegExp.escape(fenceMarker)}*[ \\t]*\$',
+      );
+      if (closeRe.hasMatch(line)) {
+        fenceMarker = '';
+        fenceOpenLen = 0;
+      }
+      i++;
+      continue;
+    }
+    if (mathOpener.isNotEmpty) {
+      final closer = mathOpener == r'\[' ? r'\]' : r'$$';
+      if (trimmed.contains(closer)) {
+        mathOpener = '';
+      }
+      i++;
+      continue;
+    }
+    if (detailsDepth > 0) {
+      detailsDepth +=
+          detailsOpenRe.allMatches(line).length -
+          detailsCloseRe.allMatches(line).length;
+      if (detailsDepth < 0) detailsDepth = 0;
+      i++;
+      continue;
+    }
+
+    final fenceOpen = fenceOpenRe.firstMatch(line);
+    if (fenceOpen != null) {
+      fenceMarker = fenceOpen.group(1)!;
+      fenceOpenLen = fenceOpen.end - (line.length - line.trimLeft().length);
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith(r'$$') &&
+        !(trimmed.length > 2 && trimmed.endsWith(r'$$'))) {
+      mathOpener = r'$$';
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith(r'\[') && !trimmed.contains(r'\]')) {
+      mathOpener = r'\[';
+      i++;
+      continue;
+    }
+    detailsDepth +=
+        detailsOpenRe.allMatches(line).length -
+        detailsCloseRe.allMatches(line).length;
+    if (detailsDepth < 0) detailsDepth = 0;
+
+    if (trimmed.startsWith('>')) {
+      blockKind = _StreamingBlockKind.quote;
+    } else if (listRe.hasMatch(trimmed)) {
+      blockKind = _StreamingBlockKind.list;
+    }
+    i++;
+  }
+  return boundaries;
 }
 
 String _preprocessFences(
