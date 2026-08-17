@@ -11,14 +11,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/assistant.dart';
 import '../../models/backup.dart';
+import '../../models/chat_input_data.dart';
 import '../../models/chat_message.dart';
 import '../../models/conversation.dart';
 import '../../models/group_chat.dart';
 import '../../models/group_chat_member.dart';
 import '../../models/incremental_backup.dart';
+import '../deleted_records_store.dart';
 import '../chat/chat_service.dart';
 import '../mcp/kelivo_filesystem/kelivo_filesystem_server.dart'
     show isSafeWireSegment;
+import 'double_pref_keys.dart';
 import 'kelivo_image_settings_mapper.dart';
 import 'kelivo_v2_exception.dart';
 import '../../../utils/app_directories.dart';

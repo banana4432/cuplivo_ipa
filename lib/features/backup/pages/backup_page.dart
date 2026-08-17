@@ -25,7 +25,6 @@ import '../../../shared/dialogs/rikkahub_migrate_dialog.dart';
 import '../../../shared/dialogs/kelivo_compat_dialog.dart';
 import '../../../core/services/backup/cherry_importer.dart';
 import '../../../core/services/backup/chatbox_importer.dart';
-import '../../../utils/format.dart';
 import '../../../utils/platform_utils.dart';
 import '../widgets/backup_reminder_helpers.dart';
 
@@ -217,26 +216,6 @@ class _BackupPageState extends State<BackupPage> {
     await showRestartRequiredDialog(context);
   }
 
-  Future<void> _restoreIncrementalItem({
-    required BuildContext context,
-    required Future<void> Function() performRestore,
-  }) async {
-    try {
-      await _runWithImportingOverlay(context, performRestore);
-    } catch (e) {
-      if (!context.mounted) return;
-      showAppSnackBar(
-        context,
-        message: e.toString(),
-        type: NotificationType.error,
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    await _afterSuccessfulRestore(context);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
@@ -821,79 +800,6 @@ class _ReminderFrequencyTileState extends State<_ReminderFrequencyTile> {
 
 // --- iOS-style widgets ---
 
-class _InputRow extends StatelessWidget {
-  const _InputRow({
-    required this.label,
-    required this.controller,
-    this.hint,
-    this.obscure = false,
-    this.suffix,
-  });
-  final String label;
-  final TextEditingController controller;
-  final String? hint;
-  final bool obscure;
-  final Widget? suffix;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-    final fieldBg = isDark ? Colors.white12 : const Color(0xFFF2F3F5);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: AppFontWeights.semibold,
-            color: cs.onSurface.withValues(alpha: 0.72),
-          ),
-        ),
-        const SizedBox(height: 7),
-        TextField(
-          controller: controller,
-          obscureText: obscure,
-          textAlignVertical: TextAlignVertical.center,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: AppFontWeights.medium,
-            color: cs.onSurface.withValues(alpha: 0.92),
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            isDense: true,
-            filled: true,
-            fillColor: fieldBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: cs.primary, width: 1),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            suffixIcon: suffix,
-            suffixIconConstraints: const BoxConstraints(
-              minWidth: 40,
-              minHeight: 40,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _TactileIconButton extends StatefulWidget {
   const _TactileIconButton({
     required this.icon,
@@ -984,11 +890,9 @@ class _SmallTactileIcon extends StatefulWidget {
   const _SmallTactileIcon({
     required this.icon,
     required this.onTap,
-    this.baseColor,
   });
   final IconData icon;
   final VoidCallback onTap;
-  final Color? baseColor;
   @override
   State<_SmallTactileIcon> createState() => _SmallTactileIconState();
 }
@@ -997,7 +901,7 @@ class _SmallTactileIconState extends State<_SmallTactileIcon> {
   bool _pressed = false;
   @override
   Widget build(BuildContext context) {
-    final base = widget.baseColor ?? Theme.of(context).colorScheme.onSurface;
+    final base = Theme.of(context).colorScheme.onSurface;
     final c = _pressed ? base.withValues(alpha: 0.7) : base;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
