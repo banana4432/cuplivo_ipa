@@ -57,33 +57,10 @@ class KelivoV2Importer {
   // ===== settings.json 处理（移植自 kelivo-helper Qo/Xo） =====
 
   static Map<String, dynamic> _processSettings(Map<String, dynamic> settings) {
-    final s = Map<String, dynamic>.from(settings);
-    final raw = s['assistants_v1'];
-    if (raw is String && raw.isNotEmpty) {
-      try {
-        final parsed = jsonDecode(raw);
-        if (parsed is List) {
-          final list = parsed.map((a) {
-            if (a is! Map) return a;
-            final o = Map<String, dynamic>.from(a);
-            final preset = o['presetMessages'];
-            if (preset is String) {
-              try {
-                final d = jsonDecode(preset);
-                if (d is List) o['presetMessages'] = d;
-              } catch (_) {}
-            }
-            final recall = o['allowPastConversationRecall'];
-            if (recall is bool && o['enableRecentChatsReference'] == null) {
-              o['enableRecentChatsReference'] = recall;
-            }
-            return o;
-          }).toList();
-          s['assistants_v1'] = list;
-        }
-      } catch (_) {}
-    }
-    return s;
+    // Cuplivo 的恢复流程只认 String 形式的 assistants_v1（`is String` 分支才
+    // 解析助手），因此保持原样，不做数组转换（kelivo-helper 的"手术"是写给
+    // kelivo 旧导入器的；Cuplivo 自己的 Assistant.fromJson 会处理内部字段）。
+    return Map<String, dynamic>.from(settings);
   }
 
   // ===== chats.json 构建（移植自 kelivo-helper fl/tl/el/nl/rl/sl/il/al） =====
