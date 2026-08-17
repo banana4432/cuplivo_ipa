@@ -12,7 +12,6 @@ import 'package:Cuplivo/core/database/chat_database_repository.dart';
 import 'package:Cuplivo/core/models/chat_message.dart';
 import 'package:Cuplivo/core/models/conversation.dart';
 import 'package:Cuplivo/core/services/backup/kelivo_v2_importer.dart';
-import 'package:Cuplivo/core/services/chat/chat_service.dart';
 
 /// 端到端模拟测试（全部模拟数据，不含真实对话）：
 /// 模拟 kelivo v2 备份 → convertBackup → chats.json → fromJson 解析 →
@@ -23,7 +22,6 @@ void main() {
   late Directory extractDir;
   late AppDatabase db;
   late ChatDatabaseRepository repo;
-  late ChatService chatService;
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('kelivo_flow_test');
@@ -32,7 +30,6 @@ void main() {
 
     db = AppDatabase(NativeDatabase.memory());
     repo = ChatDatabaseRepository(db);
-    chatService = ChatService();
   });
 
   tearDown(() async {
@@ -195,7 +192,6 @@ void main() {
     expect(byConv['c2']!.length, 2);
 
     // 4) 写入 drift（restoreConversationsBatch 同款）
-    await chatService.init();
     await repo.putRestoreBatch(
       conversations: convs,
       messagesByConversation: byConv,

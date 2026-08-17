@@ -222,15 +222,14 @@ void main() {
     expect(chats['groupChats'], isEmpty);
     expect(chats['groupMembers'], isEmpty);
 
-    // settings.json：assistants_v1 从字符串转数组 + presetMessages 数组化
+    // settings.json：assistants_v1 保持 String 原样（cuplivo 恢复流程只认 String）
     final settings = jsonDecode(
       await File(p.join(extractDir.path, 'settings.json')).readAsString(),
     ) as Map<String, dynamic>;
-    final assistants = settings['assistants_v1'] as List;
+    expect(settings['assistants_v1'], isA<String>());
+    final assistants = jsonDecode(settings['assistants_v1'] as String) as List;
     expect(assistants, hasLength(1));
     expect(assistants[0]['id'], 'a1');
-    expect(assistants[0]['presetMessages'], ['hi', 'hello']);
-    expect(assistants[0]['enableRecentChatsReference'], isTrue);
   });
 
   test('unknown part kinds are preserved into content', () async {
