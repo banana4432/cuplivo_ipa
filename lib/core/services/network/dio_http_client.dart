@@ -172,7 +172,16 @@ class DioHttpClient extends http.BaseClient {
     final reqHeaders = Map<String, String>.from(request.headers);
     reqHeaders.putIfAbsent('User-Agent', () => 'Cuplivo');
 
-    if (RequestLogger.llmEnabled) {
+    // Decode only when logging is enabled; a request whose attachment file
+    // name embeds the log-skip marker (e.g. the AI log-analysis export) is
+    // kept entirely out of the log files, so analysis traffic cannot
+    // inflate or poison the logs.
+    final bodyText = RequestLogger.llmEnabled && bodyBytes.isNotEmpty
+        ? RequestLogger.safeDecodeUtf8(bodyBytes)
+        : '';
+    final logEnabled = RequestLogger.llmEnabled && !_hasLogSkipMarker(bodyText);
+
+    if (logEnabled) {
       RequestLogger.logLine('[REQ $reqId] $method $uri');
       if (reqHeaders.isNotEmpty) {
         RequestLogger.logLine(
@@ -181,12 +190,12 @@ class DioHttpClient extends http.BaseClient {
         );
       }
       if (bodyBytes.isNotEmpty) {
-        final decoded = RequestLogger.safeDecodeUtf8(bodyBytes);
-        final bodyText = decoded.isNotEmpty
+        final decoded = bodyText;
+        final logBody = decoded.isNotEmpty
             ? decoded
             : 'base64:${base64Encode(bodyBytes)}';
         RequestLogger.logLine(
-          '[REQ $reqId] body=${RequestLogger.escape(bodyText)}',
+          '[REQ $reqId] body=${RequestLogger.escape(logBody)}',
         );
       }
     }
@@ -213,7 +222,7 @@ class DioHttpClient extends http.BaseClient {
         headers[name] = values.join(',');
       });
 
-      if (RequestLogger.llmEnabled) {
+      if (logEnabled) {
         RequestLogger.logLine('[RES $reqId] status=$statusCode');
         if (headers.isNotEmpty) {
           RequestLogger.logLine(
@@ -232,7 +241,7 @@ class DioHttpClient extends http.BaseClient {
         body.stream.listen(
           (chunk) {
             controller.add(chunk);
-            if (RequestLogger.llmEnabled && RequestLogger.saveOutput) {
+            if (logEnabled && RequestLogger.saveOutput) {
               final s = RequestLogger.safeDecodeUtf8(chunk);
               if (s.isNotEmpty) {
                 RequestLogger.logLine(
@@ -242,7 +251,7 @@ class DioHttpClient extends http.BaseClient {
             }
           },
           onError: (e, st) {
-            if (RequestLogger.llmEnabled) {
+            if (logEnabled) {
               RequestLogger.logLine(
                 '[RES $reqId] error=${RequestLogger.escape(e.toString())}',
               );
@@ -251,7 +260,7 @@ class DioHttpClient extends http.BaseClient {
             controller.close();
           },
           onDone: () {
-            if (RequestLogger.llmEnabled) {
+            if (logEnabled) {
               RequestLogger.logLine('[RES $reqId] done');
             }
             controller.close();
@@ -282,19 +291,51 @@ class DioHttpClient extends http.BaseClient {
         reasonPhrase: resp.statusMessage,
       );
     } on DioException catch (e) {
-      if (RequestLogger.llmEnabled) {
+      if (logEnabled) {
         RequestLogger.logLine(
           '[RES $reqId] dio_error=${RequestLogger.escape(e.toString())}',
         );
       }
       throw http.ClientException(e.toString(), uri);
     } catch (e) {
-      if (RequestLogger.llmEnabled) {
+      if (logEnabled) {
         RequestLogger.logLine(
           '[RES $reqId] error=${RequestLogger.escape(e.toString())}',
         );
       }
       throw http.ClientException(e.toString(), uri);
     }
+  }
+
+  /// Returns true when [bodyText] carries an attachment whose file name
+  /// (or path) contains [RequestLogger.logSkipMarker]. Only attachment
+  /// fields are inspected, so a marker accidentally appearing in message
+  /// text does not suppress logging.
+  static bool _hasLogSkipMarker(String bodyText) {
+    if (bodyText.isEmpty) return false;
+    try {
+      return _nodeHasSkipMarker(jsonDecode(bodyText));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool _nodeHasSkipMarker(Object? node) {
+    if (node is Map) {
+      for (final entry in node.entries) {
+        final name = entry.key.toString().toLowerCase();
+        if ((name == 'filename' || name == 'path' || name == 'name') &&
+            entry.value is String &&
+            (entry.value as String).contains(RequestLogger.logSkipMarker)) {
+          return true;
+        }
+        if (_nodeHasSkipMarker(entry.value)) return true;
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        if (_nodeHasSkipMarker(item)) return true;
+      }
+    }
+    return false;
   }
 }

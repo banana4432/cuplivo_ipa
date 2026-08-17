@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../utils/app_directories.dart';
+import '../../../core/services/network/request_logger.dart';
 import 'request_log_parser.dart';
 
 /// Creates a privacy-scrubbed, AI-readable export of request-log entries.
@@ -69,7 +70,10 @@ class RequestLogAiAnalysisExporter {
         .replaceAll('.', '-');
     final prefix = _safeFileNamePrefix(fileNamePrefix);
     final file = File(
-      p.join(outputDirectory.path, '${prefix}_$timestamp.json'),
+      p.join(
+        outputDirectory.path,
+        '${RequestLogger.logSkipMarker}_${prefix}_$timestamp.json',
+      ),
     );
     final text = const JsonEncoder.withIndent('  ').convert(
       buildPayload(entries, generatedAt: now),
@@ -94,18 +98,61 @@ class RequestLogAiAnalysisExporter {
     } catch (_) {}
   }
 
+  /// Conservative token budget for the exported payload. Estimation uses a
+  /// 4x safety factor over raw character count (see [_estimateTokens]), so
+  /// the exported JSON never exceeds this budget under common tokenizers.
+  static const int _maxPayloadTokens = 100000;
+
   /// Produces the export payload without doing file I/O.
+  ///
+  /// Entries are consumed newest-first up to the token budget; any entry
+  /// that would exceed the budget (or that alone exceeds it) is skipped
+  /// entirely and reported via `omitted_count` / `omitted_hint` instead of
+  /// being truncated mid-entry.
   static Map<String, dynamic> buildPayload(
     List<RequestLogEntry> entries, {
     DateTime? generatedAt,
   }) {
     final timestamp = generatedAt ?? DateTime.now().toUtc();
+    final requests = <Map<String, dynamic>>[];
+    var budget = _maxPayloadTokens;
+    var omitted = 0;
+    for (final entry in entries) {
+      final payload = _entryToPayload(entry);
+      final estimate = _estimateTokens(payload);
+      if (estimate > _maxPayloadTokens) {
+        // A single entry alone exceeds the whole budget: skip it whole.
+        omitted++;
+        continue;
+      }
+      if (estimate > budget) {
+        // Budget exhausted; entries are newest-first, so the rest are older
+        // and omitted wholesale.
+        omitted += entries.length - requests.length - omitted;
+        break;
+      }
+      budget -= estimate;
+      requests.add(payload);
+    }
     return <String, dynamic>{
       'format': 'cuplivo.request-log-ai-analysis.v1',
       'generated_at': timestamp.toIso8601String(),
       'request_count': entries.length,
-      'requests': entries.map(_entryToPayload).toList(growable: false),
+      'omitted_count': omitted,
+      if (omitted > 0)
+        'omitted_hint':
+            '$omitted earlier log entries omitted due to token budget limit',
+      'requests': requests,
     };
+  }
+
+  /// Very conservative token estimate: 1 character counted as up to 4
+  /// tokens is a safe upper bound for common tokenizers (English text runs
+  /// ~3-4 chars/token, CJK ~1-3 tokens/char), guaranteeing the budget is
+  /// never exceeded in practice.
+  static int _estimateTokens(Map<String, dynamic> payload) {
+    final text = const JsonEncoder().convert(payload);
+    return text.length * 4;
   }
 
   static Map<String, dynamic> _entryToPayload(RequestLogEntry entry) {

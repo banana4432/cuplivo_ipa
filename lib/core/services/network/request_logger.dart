@@ -14,6 +14,12 @@ class RequestLogger {
   static const String catTts = 'tts';
   static const String catSearch = 'search';
 
+  /// Filename marker that opts a request out of logging. When an attached
+  /// file's name contains this marker, the whole request/response exchange
+  /// is skipped (see DioHttpClient). The AI log-analysis export is named
+  /// with this marker so analysis traffic never grows the log files.
+  static const String logSkipMarker = 'cuplivo_n9x7';
+
   /// Header names whose values are masked in log output (case-insensitive).
   /// Credentials stay out of the plaintext log files: only the first 7
   /// characters plus the remaining length are written (e.g. `Bearer [45 more]`).
