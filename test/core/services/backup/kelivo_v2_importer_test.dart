@@ -112,7 +112,7 @@ void main() {
       db.execute(
         'INSERT INTO message_part_rows VALUES (?,?,?,?,?,?)',
         ['p4', 'c1', 'm3', 0, 'image',
-         '{"uri":"kelivo-file:///upload/test.png","assetId":"asset1"}'],
+         '{"uri":"kelivo-file://upload/test.png","assetId":"asset1"}'],
       );
       // 资产
       db.execute(
