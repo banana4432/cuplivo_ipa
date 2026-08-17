@@ -15395,6 +15395,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Swept {total} orphan rows'**
   String backupPageSweepDone(int total);
+
+  /// No description provided for @recoveryExportShareCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to temporary directory — find it in the Files app'**
+  String get recoveryExportShareCancelled;
+
+  /// No description provided for @backupPageExportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup saved'**
+  String get backupPageExportDone;
 }
 
 class _AppLocalizationsDelegate

@@ -19,6 +19,7 @@ import '../../../core/services/trash_restore_coordinator.dart';
 import '../../../core/services/backup/data_sync.dart';
 import '../../../core/services/backup/restore_refresher.dart';
 import '../../../core/services/native_file_save.dart';
+import '../../../core/services/backup/backup_share_helper.dart';
 import '../../../shared/widgets/ios_switch.dart';
 import '../../../shared/dialogs/restart_required_dialog.dart';
 import '../../../shared/dialogs/rikkahub_migrate_dialog.dart';
@@ -615,23 +616,11 @@ class _BackupPageState extends State<BackupPage> {
       if (!context.mounted) return;
       final isMobile = Platform.isAndroid || Platform.isIOS;
       if (isMobile) {
-        try {
-          final saved = await NativeFileSave.saveFileFromPath(
-            sourcePath: file.path,
-            fileName: file.uri.pathSegments.last,
-          );
-          if (saved && context.mounted) {
-            await context
-                .read<BackupReminderProvider>()
-                .recordBackupCompleted();
-          }
-        } catch (e) {
-          if (!context.mounted) return;
-          showAppSnackBar(
-            context,
-            message: e.toString(),
-            type: NotificationType.error,
-          );
+        final saved = await BackupShareHelper.shareExportedBackup(file);
+        if (saved && context.mounted) {
+          await context
+              .read<BackupReminderProvider>()
+              .recordBackupCompleted();
         }
       } else {
         final savePath = await FilePicker.platform.saveFile(

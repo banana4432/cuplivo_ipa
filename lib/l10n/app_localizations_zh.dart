@@ -8136,6 +8136,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String backupPageSweepDone(int total) {
     return '清理 $total 条孤儿记录';
   }
+
+  @override
+  String get recoveryExportShareCancelled => '已保存到临时目录，请到 Files app 中查找';
+
+  @override
+  String get backupPageExportDone => '已导出';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -16270,6 +16276,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String backupPageSweepDone(int total) {
     return '清理 $total 条孤儿记录';
   }
+
+  @override
+  String get recoveryExportShareCancelled => '已保存到临时目录，请到 Files app 中查找';
+
+  @override
+  String get backupPageExportDone => '已导出';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24404,4 +24416,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String backupPageSweepDone(int total) {
     return '清理 $total 条孤儿记录';
   }
+
+  @override
+  String get recoveryExportShareCancelled => '已保存到临时目录，请到 Files app 中查找';
+
+  @override
+  String get backupPageExportDone => '已导出';
 }

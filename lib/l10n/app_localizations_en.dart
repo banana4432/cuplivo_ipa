@@ -8518,4 +8518,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String backupPageSweepDone(int total) {
     return 'Swept $total orphan rows';
   }
+
+  @override
+  String get recoveryExportShareCancelled =>
+      'Saved to temporary directory — find it in the Files app';
+
+  @override
+  String get backupPageExportDone => 'Backup saved';
 }

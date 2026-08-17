@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../../core/providers/backup_provider.dart';
 import '../../../core/models/backup.dart' show RestoreMode;
+import '../../../core/services/backup/backup_share_helper.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_font_weights.dart';
@@ -72,12 +73,25 @@ class _RecoveryPageState extends State<RecoveryPage> {
     }
   }
 
-  Future<void> _exportCurrent() {
+  Future<void> _exportCurrent() async {
     final l10n = AppLocalizations.of(context)!;
     final vm = context.read<BackupProvider>();
-    return _runGuarded(
+    File? file;
+    await _runGuarded(
       l10n.recoveryActionExport,
-      () => vm.exportToFile(),
+      () async {
+        file = await vm.exportToFile();
+      },
+    );
+    if (file == null || !mounted) return;
+    final shared = await BackupShareHelper.shareExportedBackup(file!);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          shared ? l10n.backupPageExportDone : l10n.recoveryExportShareCancelled,
+        ),
+      ),
     );
   }
 

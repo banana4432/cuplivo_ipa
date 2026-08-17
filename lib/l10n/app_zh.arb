@@ -3252,5 +3252,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "recoveryExportShareCancelled": "已保存到临时目录，请到 Files app 中查找",
+  "backupPageExportDone": "已导出"
 }

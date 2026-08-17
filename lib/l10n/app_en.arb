@@ -3864,5 +3864,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "recoveryExportShareCancelled": "Saved to temporary directory — find it in the Files app",
+  "backupPageExportDone": "Backup saved"
 }
