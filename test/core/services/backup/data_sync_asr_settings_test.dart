@@ -72,7 +72,7 @@ void main() {
 
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
         );
         addTearDown(() => backupFile.deleteSync());
 
@@ -102,7 +102,7 @@ void main() {
 
       final sync = DataSync(chatService: ChatService());
       final backupFile = await sync.prepareBackupFile(
-        const WebDavConfig(includeChats: false, includeFiles: false),
+        const BackupExportOptions(includeChats: false, includeFiles: false),
       );
       addTearDown(() => backupFile.deleteSync());
 
@@ -158,7 +158,7 @@ void main() {
         final sync = DataSync(chatService: ChatService());
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.merge,
         );
 

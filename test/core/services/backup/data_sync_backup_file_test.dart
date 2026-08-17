@@ -109,7 +109,7 @@ void main() {
 
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: false, includeFiles: true),
+          const BackupExportOptions(includeChats: false, includeFiles: true),
         );
 
         expect(await staleWorkDir.exists(), isFalse);
@@ -172,7 +172,7 @@ void main() {
       final sync = DataSync(chatService: ChatService());
       await sync.restoreFromLocalFile(
         zipFile,
-        const WebDavConfig(includeChats: false, includeFiles: true),
+        const BackupExportOptions(includeChats: false, includeFiles: true),
         mode: RestoreMode.merge,
       );
 
@@ -184,7 +184,7 @@ void main() {
 
       await sync.restoreFromLocalFile(
         zipFile,
-        const WebDavConfig(includeChats: false, includeFiles: true),
+        const BackupExportOptions(includeChats: false, includeFiles: true),
         mode: RestoreMode.overwrite,
       );
 
@@ -217,7 +217,7 @@ void main() {
       final sync = DataSync(chatService: ChatService());
       await sync.restoreFromLocalFile(
         zipFile,
-        const WebDavConfig(includeChats: false, includeFiles: true),
+        const BackupExportOptions(includeChats: false, includeFiles: true),
         mode: RestoreMode.merge,
       );
 
@@ -229,7 +229,7 @@ void main() {
 
       await sync.restoreFromLocalFile(
         zipFile,
-        const WebDavConfig(includeChats: false, includeFiles: true),
+        const BackupExportOptions(includeChats: false, includeFiles: true),
         mode: RestoreMode.overwrite,
       );
 
@@ -271,7 +271,7 @@ void main() {
         final sync = DataSync(chatService: ChatService());
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: true),
+          const BackupExportOptions(includeChats: false, includeFiles: true),
           mode: RestoreMode.merge,
         );
 
@@ -285,7 +285,7 @@ void main() {
         await localFile.setLastModified(DateTime(2026, 1, 3));
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: true),
+          const BackupExportOptions(includeChats: false, includeFiles: true),
           mode: RestoreMode.merge,
         );
 
@@ -304,7 +304,7 @@ void main() {
 
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
         );
 
         final input = InputFileStream(backupFile.path);
@@ -320,7 +320,7 @@ void main() {
         await skillsDir.delete(recursive: true);
         await sync.restoreFromLocalFile(
           backupFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -424,7 +424,7 @@ void main() {
         final sync = DataSync(chatService: ChatService());
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.merge,
         );
 
@@ -478,58 +478,12 @@ void main() {
       },
     );
 
-    test('cleans temporary restore files after a file-copy failure', () async {
-      final sourceDir = Directory('${root.path}/source_upload');
-      await sourceDir.create(recursive: true);
-      final sourceFile = File('${sourceDir.path}/file.txt');
-      await sourceFile.writeAsString('payload');
-
-      final zipFile = File('${root.path}/restore_source.zip');
-      final encoder = ZipFileEncoder();
-      encoder.create(zipFile.path);
-      encoder.addFileSync(sourceFile, 'upload/file.txt');
-      encoder.closeSync();
-
-      // A file occupying the upload target makes the files-restore step throw
-      // (EEXIST). Since #475, that failure is logged-and-continued — the
-      // restore completes and the downloaded temp file is still cleaned up.
-      await File('${root.path}/upload').writeAsString('not a directory');
-
-      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      addTearDown(() async {
-        await server.close(force: true);
-      });
-
-      server.listen((request) async {
-        request.response.statusCode = HttpStatus.ok;
-        await request.response.addStream(zipFile.openRead());
-        await request.response.close();
-      });
-
-      final sync = DataSync(chatService: ChatService());
-      final tmpDir = Directory('${root.path}/tmp');
-      final item = BackupFileItem(
-        href: Uri.parse('http://127.0.0.1:${server.port}/restore_source.zip'),
-        displayName: 'restore_source.zip',
-        size: await zipFile.length(),
-        lastModified: null,
-      );
-
-      await sync.restoreFromWebDav(
-        const WebDavConfig(includeChats: false, includeFiles: true),
-        item,
-      );
-
-      expect(await File('${tmpDir.path}/restore_source.zip').exists(), isFalse);
-      expect(await tmpDir.list().toList(), isEmpty);
-    });
-
     test(
       'incremental: since param produces cuplivo_incr_ prefix and includeSettings=false excludes settings.json',
       () async {
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           incremental: IncrementalBackupConfig(
             since: DateTime.now().subtract(const Duration(days: 30)),
             includeSettings: false,
@@ -557,7 +511,7 @@ void main() {
       () async {
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
         );
 
         expect(
@@ -590,7 +544,7 @@ void main() {
         // Should not throw: overwrite mode is silently degraded to merge
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
       },
@@ -608,7 +562,7 @@ void main() {
 
       final sync = DataSync(chatService: ChatService());
       final backupFile = await sync.prepareBackupFile(
-        const WebDavConfig(includeChats: false, includeFiles: true),
+        const BackupExportOptions(includeChats: false, includeFiles: true),
         incremental: IncrementalBackupConfig(
           since: DateTime.now().subtract(const Duration(days: 30)),
           includeFiles: true,
@@ -637,7 +591,7 @@ void main() {
 
       final sync = DataSync(chatService: ChatService());
       final backupFile = await sync.prepareBackupFile(
-        const WebDavConfig(includeChats: false, includeFiles: true),
+        const BackupExportOptions(includeChats: false, includeFiles: true),
         incremental: IncrementalBackupConfig(
           since: DateTime.now().subtract(const Duration(days: 30)),
           includeSettings: false,
@@ -696,7 +650,7 @@ void main() {
 
         final sync = DataSync(chatService: chatService);
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: true, includeFiles: false),
+          const BackupExportOptions(includeChats: true, includeFiles: false),
           incremental: IncrementalBackupConfig(
             since: since,
             includeSettings: false,
@@ -762,7 +716,7 @@ void main() {
 
         final sync = DataSync(chatService: chatService);
         final backupFile = await sync.prepareBackupFile(
-          const WebDavConfig(includeChats: true, includeFiles: false),
+          const BackupExportOptions(includeChats: true, includeFiles: false),
           incremental: IncrementalBackupConfig(
             since: since,
             includeSettings: false,
@@ -940,7 +894,7 @@ void main() {
         final sync = DataSync(chatService: chatService);
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -968,7 +922,7 @@ void main() {
         final sync = DataSync(chatService: chatService);
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -995,7 +949,7 @@ void main() {
       final sync = DataSync(chatService: chatService);
       await sync.restoreFromLocalFile(
         zipFile,
-        const WebDavConfig(includeChats: false, includeFiles: false),
+        const BackupExportOptions(includeChats: false, includeFiles: false),
         mode: RestoreMode.merge,
       );
 
@@ -1021,7 +975,7 @@ void main() {
         final sync = DataSync(chatService: chatService);
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -1100,7 +1054,7 @@ void main() {
         final sync = DataSync(chatService: chatService);
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: true, includeFiles: true),
+          const BackupExportOptions(includeChats: true, includeFiles: true),
           mode: RestoreMode.overwrite,
         );
 
@@ -1135,7 +1089,7 @@ void main() {
         await expectLater(
           sync.restoreFromLocalFile(
             zipFile,
-            const WebDavConfig(includeChats: true, includeFiles: true),
+            const BackupExportOptions(includeChats: true, includeFiles: true),
             mode: RestoreMode.overwrite,
           ),
           throwsA(isA<KelivoV2BackupException>()),
@@ -1187,7 +1141,7 @@ void main() {
 
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -1215,7 +1169,7 @@ void main() {
 
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -1240,7 +1194,7 @@ void main() {
 
       await sync.restoreFromLocalFile(
         zipFile,
-        const WebDavConfig(includeChats: false, includeFiles: false),
+        const BackupExportOptions(includeChats: false, includeFiles: false),
         mode: RestoreMode.merge,
       );
 
@@ -1269,7 +1223,7 @@ void main() {
 
         await sync.restoreFromLocalFile(
           zipFile,
-          const WebDavConfig(includeChats: false, includeFiles: false),
+          const BackupExportOptions(includeChats: false, includeFiles: false),
           mode: RestoreMode.overwrite,
         );
 
@@ -1291,7 +1245,7 @@ void main() {
         });
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          WebDavConfig(includeChats: false, includeFiles: false),
+          BackupExportOptions(includeChats: false, includeFiles: false),
         );
 
         final input = InputFileStream(backupFile.path);
@@ -1322,7 +1276,7 @@ void main() {
       });
       final sync = DataSync(chatService: ChatService());
       final backupFile = await sync.prepareBackupFile(
-        WebDavConfig(includeChats: false, includeFiles: false),
+        BackupExportOptions(includeChats: false, includeFiles: false),
       );
 
       final input = InputFileStream(backupFile.path);
@@ -1372,7 +1326,7 @@ void main() {
         });
         final sync = DataSync(chatService: ChatService());
         final backupFile = await sync.prepareBackupFile(
-          WebDavConfig(includeChats: false, includeFiles: false),
+          BackupExportOptions(includeChats: false, includeFiles: false),
         );
 
         final input = InputFileStream(backupFile.path);
@@ -1430,7 +1384,7 @@ void main() {
       });
       final sync = DataSync(chatService: ChatService());
       final backupFile = await sync.prepareBackupFile(
-        WebDavConfig(includeChats: false, includeFiles: false),
+        BackupExportOptions(includeChats: false, includeFiles: false),
       );
 
       final input = InputFileStream(backupFile.path);

@@ -63,7 +63,6 @@ import 'setting/tts_services_pane.dart';
 import 'setting/quick_phrases_pane.dart';
 import 'setting/instruction_injection_pane.dart';
 import 'setting/world_book_pane.dart';
-import 'setting/backup_pane.dart';
 import 'setting/hotkeys_pane.dart';
 import 'setting/network_proxy_pane.dart';
 import 'setting/skills_pane.dart';
@@ -224,7 +223,8 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                             key: ValueKey('networkProxy'),
                           );
                         case _SettingsMenuItem.backup:
-                          return const DesktopBackupPane(
+                          // 远程备份（WebDAV/S3/LAN）已移除，仅保留本地导入导出（移动端）。
+                          return const SizedBox.shrink(
                             key: ValueKey('backup'),
                           );
                         case _SettingsMenuItem.hotkeys:
