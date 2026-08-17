@@ -24,6 +24,7 @@ import '../mcp/kelivo_filesystem/kelivo_filesystem_server.dart'
 import 'double_pref_keys.dart';
 import 'kelivo_image_settings_mapper.dart';
 import 'kelivo_v2_exception.dart';
+import 'kelivo_v2_importer.dart';
 import '../../../utils/app_directories.dart';
 
 class DataSync {
@@ -839,12 +840,14 @@ class DataSync {
       });
 
       // Kelivo v2 (upstream) backups carry a manifest.json + database/
-      // kelivo.db payload instead of chats.json. This build cannot import
-      // them — importing would silently restore nothing. Surface a typed
-      // error so the UI can redirect to the kelivo-helper compat page.
-      // Detected before ANY write, so nothing local is destroyed.
+      // kelivo.db payload instead of chats.json. Convert them in-app to the
+      // legacy chats.json layout first (port of kelivo-helper compat tool),
+      // then continue with the normal restore path. A failed conversion
+      // surfaces [KelivoV2BackupException] so the UI can redirect to the
+      // kelivo-helper compat page as a fallback. Detected before ANY write,
+      // so nothing local is destroyed on failure.
       if (File(p.join(extractDir.path, 'manifest.json')).existsSync()) {
-        throw KelivoV2BackupException();
+        await KelivoV2Importer.convertBackup(extractDir);
       }
 
       // Restore settings
