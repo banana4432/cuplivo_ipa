@@ -216,6 +216,7 @@ class _BackupPageState extends State<BackupPage> {
     await showRestartRequiredDialog(context);
   }
 
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
