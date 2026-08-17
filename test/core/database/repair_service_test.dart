@@ -21,7 +21,7 @@ void main() {
       // Insert a conversation row so the conversation_rows table has at
       // least one indexable page. Use minimal columns so the test doesn't
       // break when the schema adds new required columns.
-      await db.customInsert(
+      await db.customStatement(
         'INSERT INTO conversation_rows '
         '(id, title, created_at, updated_at, assistant_id, sort_order, '
         'version_selections_json, summary, chat_suggestions_json, '
@@ -29,7 +29,7 @@ void main() {
         'conversation_kind, is_pinned, truncate_index) '
         "VALUES ('c1', 'C1', 0, 0, NULL, 0, '{}', NULL, '[]', 0, NULL, "
         "'normal', 0, -1)",
-        updateKind: UpdateKind.insert,
+        
       );
 
       final report = await svc.reindexAndAnalyze(db);
@@ -72,7 +72,7 @@ void main() {
     test('removes conversation with non-existent assistant', () async {
       // Insert a conversation referencing assistant 'missing' that does not
       // exist. The orphan sweep should delete it.
-      await db.customInsert(
+      await db.customStatement(
         'INSERT INTO conversation_rows '
         '(id, title, created_at, updated_at, assistant_id, sort_order, '
         'version_selections_json, summary, chat_suggestions_json, '
@@ -80,9 +80,9 @@ void main() {
         'conversation_kind, is_pinned, truncate_index) '
         "VALUES ('c-orphan', 'Orphan', 0, 0, 'missing', 0, '{}', NULL, "
         "'[]', 0, NULL, 'normal', 0, -1)",
-        updateKind: UpdateKind.insert,
+        
       );
-      await db.customInsert(
+      await db.customStatement(
         'INSERT INTO conversation_rows '
         '(id, title, created_at, updated_at, assistant_id, sort_order, '
         'version_selections_json, summary, chat_suggestions_json, '
@@ -90,7 +90,7 @@ void main() {
         'conversation_kind, is_pinned, truncate_index) '
         "VALUES ('c-keep', 'Keep', 0, 0, NULL, 0, '{}', NULL, '[]', 0, "
         "NULL, 'normal', 0, -1)",
-        updateKind: UpdateKind.insert,
+        
       );
 
       final report = await svc.sweepOrphans(db);
@@ -108,7 +108,7 @@ void main() {
       // Insert a conversation, then a message referencing it. Delete the
       // conversation out-of-band (FK off) — the orphan sweep should detect
       // the message and clean it.
-      await db.customInsert(
+      await db.customStatement(
         'INSERT INTO conversation_rows '
         '(id, title, created_at, updated_at, assistant_id, sort_order, '
         'version_selections_json, summary, chat_suggestions_json, '
@@ -116,7 +116,7 @@ void main() {
         'conversation_kind, is_pinned, truncate_index) '
         "VALUES ('c1', 'C1', 0, 0, NULL, 0, '{}', NULL, '[]', 0, NULL, "
         "'normal', 0, -1)",
-        updateKind: UpdateKind.insert,
+        
       );
       // Disable FK enforcement so the test scenario is real-world (the sweep
       // exists precisely for cases where FKs were off or bypassed).
@@ -124,11 +124,11 @@ void main() {
       // Insert a message BEFORE we delete the conversation. We delete the
       // conversation out-of-band, then run the sweep — the message should
       // be removed.
-      await db.customInsert(
+      await db.customStatement(
         'INSERT INTO message_rows '
         '(id, conversation_id, role, content, timestamp, message_order) '
         "VALUES ('m1', 'c1', 'user', 'hi', 0, 0)",
-        updateKind: UpdateKind.insert,
+        
       );
       await db.customStatement("DELETE FROM conversation_rows WHERE id = 'c1'");
 
