@@ -4,13 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:Cuplivo/core/providers/backup_provider.dart';
 import 'package:Cuplivo/core/providers/backup_reminder_provider.dart';
-import 'package:Cuplivo/core/providers/s3_backup_provider.dart';
 import 'package:Cuplivo/core/providers/settings_provider.dart';
 import 'package:Cuplivo/core/services/chat/chat_service.dart';
 import 'package:Cuplivo/core/services/trash_restore_coordinator.dart';
-import 'package:Cuplivo/desktop/setting/backup_pane.dart';
 import 'package:Cuplivo/features/backup/pages/backup_page.dart';
 import 'package:Cuplivo/l10n/app_localizations.dart';
 
@@ -37,52 +34,6 @@ Future<void> _pumpBackupPage(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: BackupPage(trashRestoreCoordinator: coordinator),
-      ),
-    ),
-  );
-  await tester.pump();
-}
-
-Future<void> _pumpDesktopBackupPane(
-  WidgetTester tester, {
-  required SettingsProvider settings,
-}) async {
-  final chatService = ChatService();
-  final reminder = BackupReminderProvider(autoLoad: false);
-  await reminder.load(startTimer: false);
-
-  await tester.pumpWidget(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<SettingsProvider>.value(value: settings),
-        ChangeNotifierProvider<ChatService>.value(value: chatService),
-        Provider(
-          create: (_) => TrashRestoreCoordinator(chatService: chatService),
-        ),
-        ChangeNotifierProvider<BackupReminderProvider>.value(value: reminder),
-        ChangeNotifierProvider<BackupProvider>(
-          create: (_) => BackupProvider(
-            chatService: chatService,
-            trashRestoreCoordinator: TrashRestoreCoordinator(
-              chatService: chatService,
-            ),
-            initialConfig: settings.webDavConfig,
-          ),
-        ),
-        ChangeNotifierProvider<S3BackupProvider>(
-          create: (_) => S3BackupProvider(
-            chatService: chatService,
-            trashRestoreCoordinator: TrashRestoreCoordinator(
-              chatService: chatService,
-            ),
-            initialConfig: settings.s3Config,
-          ),
-        ),
-      ],
-      child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(body: DesktopBackupPane()),
       ),
     ),
   );
@@ -209,29 +160,4 @@ void main() {
     });
   });
 
-  group('DesktopBackupPane RikkaHub migration entry', () {
-    testWidgets('shows the button and opens the migration guide dialog', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(1100, 1300));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      final settings = SettingsProvider();
-      await _pumpDesktopBackupPane(tester, settings: settings);
-
-      final button = find.text('Import from RikkaHub');
-      await tester.scrollUntilVisible(
-        button,
-        120,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      expect(button, findsOneWidget);
-
-      await tester.tap(button);
-      await tester.pumpAndSettle();
-
-      _expectMigrateDialogShown(tester);
-    });
-  });
 }

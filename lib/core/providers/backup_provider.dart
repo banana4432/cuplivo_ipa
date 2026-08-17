@@ -9,110 +9,30 @@ import '../services/chat/chat_service.dart';
 import '../services/backup/data_sync.dart';
 import '../services/trash_restore_coordinator.dart';
 
+/// 本地备份导入导出（WebDAV/S3/LAN 远程同步已移除）。
 class BackupProvider extends ChangeNotifier {
   final DataSync _dataSync;
-  WebDavConfig _cfg;
+  BackupExportOptions _options;
   bool _busy = false;
   String? _message;
 
   BackupProvider({
     required ChatService chatService,
     required TrashRestoreCoordinator trashRestoreCoordinator,
-    WebDavConfig? initialConfig,
+    BackupExportOptions? initialOptions,
   }) : _dataSync = DataSync(
          chatService: chatService,
          localIdResolver: trashRestoreCoordinator.getLocalIds,
        ),
-       _cfg = initialConfig ?? const WebDavConfig();
+       _options = initialOptions ?? const BackupExportOptions();
 
-  WebDavConfig get config => _cfg;
+  BackupExportOptions get options => _options;
   bool get busy => _busy;
   String? get message => _message;
 
-  void updateConfig(WebDavConfig cfg) {
-    _cfg = cfg;
+  void updateOptions(BackupExportOptions options) {
+    _options = options;
     notifyListeners();
-  }
-
-  Future<bool> test() async {
-    _busy = true;
-    _message = null;
-    notifyListeners();
-    try {
-      await _dataSync.testWebdav(_cfg);
-      return true;
-    } catch (e) {
-      _message = e.toString();
-      return false;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> backup() async {
-    _busy = true;
-    _message = null;
-    notifyListeners();
-    try {
-      await _dataSync.backupToWebDav(_cfg);
-      _message = 'Backup uploaded';
-      return true;
-    } catch (e) {
-      _message = e.toString();
-      return false;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<IncrementalScope> analyzeIncrementalScope(
-    IncrementalBackupConfig config,
-  ) => _dataSync.analyzeIncrementalScope(config);
-
-  Future<bool> incrementalBackup(IncrementalBackupConfig config) async {
-    _busy = true;
-    _message = null;
-    notifyListeners();
-    try {
-      await _dataSync.backupToWebDav(_cfg, incremental: config);
-      _message = 'Backup uploaded';
-      return true;
-    } catch (e) {
-      _message = e.toString();
-      return false;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> restoreFromItem(
-    BackupFileItem item, {
-    RestoreMode mode = RestoreMode.overwrite,
-  }) async {
-    _busy = true;
-    _message = null;
-    notifyListeners();
-    try {
-      await _dataSync.restoreFromWebDav(_cfg, item, mode: mode);
-    } catch (e) {
-      _message = e.toString();
-      rethrow;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
-  }
-
-  Future<List<BackupFileItem>> listRemote() async {
-    return _dataSync.listBackupFiles(_cfg);
-  }
-
-  Future<List<BackupFileItem>> deleteAndReload(BackupFileItem item) async {
-    await _dataSync.deleteWebDavBackupFile(_cfg, item);
-    return _dataSync.listBackupFiles(_cfg);
   }
 
   Future<File> exportToFile() async {
@@ -120,7 +40,7 @@ class BackupProvider extends ChangeNotifier {
     _message = null;
     notifyListeners();
     try {
-      return await _dataSync.exportToFile(_cfg);
+      return await _dataSync.exportToFile(_options);
     } finally {
       _busy = false;
       notifyListeners();
@@ -132,7 +52,7 @@ class BackupProvider extends ChangeNotifier {
     _message = null;
     notifyListeners();
     try {
-      return await _dataSync.exportToFile(_cfg, incremental: config);
+      return await _dataSync.exportToFile(_options, incremental: config);
     } finally {
       _busy = false;
       notifyListeners();
@@ -142,5 +62,5 @@ class BackupProvider extends ChangeNotifier {
   Future<void> restoreFromLocalFile(
     File file, {
     RestoreMode mode = RestoreMode.overwrite,
-  }) => _dataSync.restoreFromLocalFile(file, _cfg, mode: mode);
+  }) => _dataSync.restoreFromLocalFile(file, _options, mode: mode);
 }
