@@ -88,58 +88,64 @@ class KelivoV2Importer {
 
   // ===== chats.json 构建（移植自 kelivo-helper fl/tl/el/nl/rl/sl/il/al） =====
 
+  /// 执行查询并按列名映射为 Map（sqlite3 的 Row 只支持 int 下标）。
+  static List<Map<String, Object?>> _queryMaps(Database db, String sql) {
+    final rs = db.select(sql);
+    final names = List<String>.from(rs.columnNames);
+    return rs.rows
+        .map(
+          (row) => {
+            for (var i = 0; i < names.length; i++) names[i]: row[i],
+          },
+        )
+        .toList();
+  }
+
   static Map<String, dynamic> _buildChatsJson(
     Database db,
     Directory extractDir,
   ) {
-    final convRows = db
-        .select(
-          'SELECT id, title, created_at, updated_at, is_pinned, assistant_id, '
-          'truncate_index, version_selections_json, summary, '
-          'last_summarized_message_count, chat_suggestions_json, '
-          'injected_memory_hash, last_memory_extracted_order '
-          'FROM conversation_rows',
-        )
-        .rows;
-    final mcpRows = db
-        .select(
-          'SELECT conversation_id, server_id FROM conversation_mcp_server_rows '
-          'ORDER BY conversation_id, ordinal',
-        )
-        .rows;
-    final msgRows = db
-        .select(
-          'SELECT id, conversation_id, role, timestamp, model_id, provider_id, '
-          'total_tokens, is_streaming, reasoning_start_at, '
-          'reasoning_finished_at, translation, reasoning_segments_json, '
-          'group_id, version, prompt_tokens, completion_tokens, cached_tokens, '
-          'duration_ms, message_order FROM message_rows '
-          'ORDER BY conversation_id, message_order',
-        )
-        .rows;
-    final partRows = db
-        .select(
-          'SELECT part_id, conversation_id, revision_id, ordinal, kind, payload '
-          'FROM message_part_rows ORDER BY revision_id, ordinal',
-        )
-        .rows;
-    final artifactRows = db
-        .select(
-          "SELECT revision_id, kind, payload FROM provider_artifact_rows "
-          "WHERE kind = 'gemini_thought_signature'",
-        )
-        .rows;
-    final assetRows = db
-        .select(
-          'SELECT id, content_hash, path, byte_size FROM asset_rows',
-        )
-        .rows;
-    final msgAssetRows = db
-        .select(
-          'SELECT revision_id, asset_id FROM message_asset_rows '
-          'ORDER BY revision_id',
-        )
-        .rows;
+    final convRows = _queryMaps(
+      db,
+      'SELECT id, title, created_at, updated_at, is_pinned, assistant_id, '
+      'truncate_index, version_selections_json, summary, '
+      'last_summarized_message_count, chat_suggestions_json, '
+      'injected_memory_hash, last_memory_extracted_order '
+      'FROM conversation_rows',
+    );
+    final mcpRows = _queryMaps(
+      db,
+      'SELECT conversation_id, server_id FROM conversation_mcp_server_rows '
+      'ORDER BY conversation_id, ordinal',
+    );
+    final msgRows = _queryMaps(
+      db,
+      'SELECT id, conversation_id, role, timestamp, model_id, provider_id, '
+      'total_tokens, is_streaming, reasoning_start_at, '
+      'reasoning_finished_at, translation, reasoning_segments_json, '
+      'group_id, version, prompt_tokens, completion_tokens, cached_tokens, '
+      'duration_ms, message_order FROM message_rows '
+      'ORDER BY conversation_id, message_order',
+    );
+    final partRows = _queryMaps(
+      db,
+      'SELECT part_id, conversation_id, revision_id, ordinal, kind, payload '
+      'FROM message_part_rows ORDER BY revision_id, ordinal',
+    );
+    final artifactRows = _queryMaps(
+      db,
+      "SELECT revision_id, kind, payload FROM provider_artifact_rows "
+      "WHERE kind = 'gemini_thought_signature'",
+    );
+    final assetRows = _queryMaps(
+      db,
+      'SELECT id, content_hash, path, byte_size FROM asset_rows',
+    );
+    final msgAssetRows = _queryMaps(
+      db,
+      'SELECT revision_id, asset_id FROM message_asset_rows '
+      'ORDER BY revision_id',
+    );
 
     // conversation_id -> [server_id]
     final mcpIds = <String, List<String>>{};
@@ -154,13 +160,13 @@ class KelivoV2Importer {
       (msgIds[convId] ??= []).add(x['id'] as String);
     }
     // revision_id -> [message_part_rows]
-    final partsByRevision = <String, List<Row>>{};
+    final partsByRevision = <String, List<Map<String, Object?>>>{};
     for (final x in partRows) {
       final revId = x['revision_id'] as String;
       (partsByRevision[revId] ??= []).add(x);
     }
     // asset_id -> asset
-    final assetById = <String, Row>{};
+    final assetById = <String, Map<String, Object?>>{};
     for (final x in assetRows) {
       assetById[x['id'] as String] = x;
     }
@@ -178,7 +184,7 @@ class KelivoV2Importer {
     final toolEvents = <String, List<Map<String, dynamic>>>{};
     final messages = <Map<String, dynamic>>[];
     for (final x in msgRows) {
-      final parts = partsByRevision[x['id'] as String] ?? const <Row>[];
+      final parts = partsByRevision[x['id'] as String] ?? const <Map<String, Object?>>[];
       final built = _buildMessage(x, parts, extractDir, assetPathById);
       if (built.toolEvents.isNotEmpty) {
         toolEvents[x['id'] as String] = built.toolEvents;
@@ -217,7 +223,7 @@ class KelivoV2Importer {
   // ===== 会话转换（移植自 kelivo-helper ul） =====
 
   static Map<String, dynamic> _buildConversation(
-    Row row,
+    Map<String, Object?> row,
     List<String> mcpServerIds,
     List<String> messageIds,
   ) {
@@ -246,8 +252,8 @@ class KelivoV2Importer {
 
   static ({Map<String, dynamic> message, List<Map<String, dynamic>> toolEvents})
   _buildMessage(
-    Row row,
-    List<Row> parts,
+    Map<String, Object?> row,
+    List<Map<String, Object?>> parts,
     Directory extractDir,
     Map<String, String> assetPathById,
   ) {
