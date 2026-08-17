@@ -204,13 +204,14 @@ void main() {
     );
 
     // 5) 读回验证
-    final readConvs = await repo.getAllCompleteConversations();
+    final readConvs = await repo.getAllConversations();
     expect(readConvs, hasLength(2), reason: 'drift 中应有 2 个会话');
     for (final c in readConvs) {
-      final ms = await repo.getMessages(c.id);
+      final ms = await repo.getMessagesRange(c.id, start: 0, limit: 100);
       expect(ms, hasLength(2), reason: '每个会话应有 2 条消息（会话 ${c.id}）');
     }
-    final m2 = (await repo.getMessages('c1')).firstWhere((m) => m.id == 'm2');
+    final m2 = (await repo.getMessagesRange('c1', start: 0, limit: 100))
+        .firstWhere((m) => m.id == 'm2');
     expect(m2.content, '回答内容');
     expect(m2.reasoningText, '思考过程');
     expect(m2.reasoningStartAt, isNull); // kelivo 无 reasoning 时间戳
