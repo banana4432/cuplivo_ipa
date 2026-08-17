@@ -129,7 +129,7 @@ void main() {
         ['m2', 'gemini_thought_signature', 'sig-payload-1'],
       );
     } finally {
-      db.dispose();
+      db.close();
     }
 
     // --- settings.json（assistants_v1 为 JSON 字符串） ---
@@ -243,7 +243,7 @@ void main() {
         ['p5', 'c1', 'm1', 0, 'mystery_kind', 'raw payload'],
       );
     } finally {
-      db.dispose();
+      db.close();
     }
 
     await KelivoV2Importer.convertBackup(extractDir);

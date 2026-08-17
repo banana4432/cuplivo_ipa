@@ -23,7 +23,6 @@ import '../mcp/kelivo_filesystem/kelivo_filesystem_server.dart'
     show isSafeWireSegment;
 import 'double_pref_keys.dart';
 import 'kelivo_image_settings_mapper.dart';
-import 'kelivo_v2_exception.dart';
 import 'kelivo_v2_importer.dart';
 import '../../../utils/app_directories.dart';
 

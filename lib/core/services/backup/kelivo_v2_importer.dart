@@ -50,7 +50,7 @@ class KelivoV2Importer {
         }
       }
     } finally {
-      db.dispose();
+      db.close();
     }
   }
 
@@ -477,7 +477,7 @@ class KelivoV2Importer {
         sec * 1000,
         isUtc: true,
       ).toIso8601String().replaceFirst(RegExp(r'\.\d{3}Z$'), '');
-      return '${base}.${msPart.toString().padLeft(3, '0')}'
+      return '$base.${msPart.toString().padLeft(3, '0')}'
           '${us.toString().padLeft(3, '0')}Z';
     }
     if (v is String) {
