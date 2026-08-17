@@ -1,4 +1,22 @@
 <div align="center">
+
+## ⚠️ Fork Notice
+
+**This repository is a fork of [cuplivo/cuplivo](https://github.com/cuplivo/cuplivo), created by [banana4432](https://github.com/banana4432).**
+
+This fork is **primarily for iOS users** — it focuses on iOS (IPA) builds and distribution.
+
+For the latest features, please visit the original repository: [cuplivo/cuplivo](https://github.com/cuplivo/cuplivo)
+
+---
+
+**本仓库由 [banana4432](https://github.com/banana4432) 从 [cuplivo/cuplivo](https://github.com/cuplivo/cuplivo) fork 而来，主要服务于 iOS 用户（IPA 构建与分发）。最新功能请以原仓库为准。**
+
+---
+
+</div>
+
+<div align="center">
   <img src="assets/app_icon.png" alt="Cuplivo Icon" width="100" />
   <h1>Why Cuplivo?</h1>
 
