@@ -81,20 +81,23 @@ class _RecoveryPageState extends State<RecoveryPage> {
     );
   }
 
-  Future<void> _restoreFromZip() => _runGuarded(
-        AppLocalizations.of(context)!.recoveryActionImport,
-        () async {
-          final picked = await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: const ['zip', 'bak'],
-          );
-          if (picked == null || picked.files.isEmpty) return;
-          final path = picked.files.first.path;
-          if (path == null) return;
-          final vm = context.read<BackupProvider>();
-          await vm.restoreFromLocalFile(File(path), mode: RestoreMode.overwrite);
-        },
-      );
+  Future<void> _restoreFromZip() {
+    final l10n = AppLocalizations.of(context)!;
+    final vm = context.read<BackupProvider>();
+    return _runGuarded(
+      l10n.recoveryActionImport,
+      () async {
+        final picked = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: const ['zip', 'bak'],
+        );
+        if (picked == null || picked.files.isEmpty) return;
+        final path = picked.files.first.path;
+        if (path == null) return;
+        await vm.restoreFromLocalFile(File(path), mode: RestoreMode.overwrite);
+      },
+    );
+  }
 
   Future<void> _repair() => _runGuarded(
         AppLocalizations.of(context)!.recoveryActionRepair,
@@ -133,6 +136,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
 
   Future<void> _rebuild() async {
     final l10n = AppLocalizations.of(context)!;
+    final vm = context.read<BackupProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -157,10 +161,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
     if (!mounted) return;
     await _runGuarded(
       l10n.recoveryActionRebuild,
-      () async {
-        final vm = context.read<BackupProvider>();
-        await vm.rebuildLocalDatabase();
-      },
+      () => vm.rebuildLocalDatabase(),
     );
   }
 

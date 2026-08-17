@@ -182,7 +182,7 @@ class RepairReport {
 
   @override
   String toString() =>
-      'RepairReport(elapsed=$elapsed, reindexed=${reindexedTableCount}, '
+      'RepairReport(elapsed=$elapsed, reindexed=$reindexedTableCount, '
       'vacuumed=$vacuumed, analyzed=$analyzed)';
 }
 
