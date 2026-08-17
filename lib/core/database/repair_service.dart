@@ -104,7 +104,7 @@ class RepairService {
       for (final row in convOrphans) {
         await db.customStatement(
           'DELETE FROM conversation_rows WHERE id = ?',
-          [Variable.withString(row.read<String>('id'))],
+          [row.read<String>('id')],
         );
       }
 
@@ -118,7 +118,7 @@ class RepairService {
       for (final row in msgOrphans) {
         await db.customStatement(
           'DELETE FROM message_rows WHERE id = ?',
-          [Variable.withString(row.read<String>('id'))],
+          [row.read<String>('id')],
         );
       }
 
@@ -134,7 +134,7 @@ class RepairService {
         for (final row in mcpOrphans) {
           await db.customStatement(
             'UPDATE assistant_rows SET default_mcp_server_id = NULL WHERE id = ?',
-            [Variable.withString(row.read<String>('id'))],
+            [row.read<String>('id')],
           );
         }
       } catch (_) {
