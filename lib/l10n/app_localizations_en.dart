@@ -8347,4 +8347,80 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get assistantEditLocalToolWorkspaceTitle => 'Workspace';
+
+  @override
+  String get iosKeepAliveMasterTitle => 'Enhanced Background Execution';
+
+  @override
+  String get iosKeepAliveMasterSubtitle =>
+      'Keep agent tasks running while the app is in the background.';
+
+  @override
+  String get iosKeepAliveSilentAudioTitle => 'Silent Audio Keep-Alive';
+
+  @override
+  String get iosKeepAliveSilentAudioSubtitle =>
+      'Play an inaudible track so iOS keeps the process alive in the background.';
+
+  @override
+  String get iosKeepAliveLocationTitle => 'Location Keep-Alive';
+
+  @override
+  String get iosKeepAliveLocationSubtitle =>
+      'Use background location updates to keep the app alive while backgrounded.';
+
+  @override
+  String get iosKeepAlivePrivacyModeTitle => 'Live Activity Privacy Mode';
+
+  @override
+  String get iosKeepAlivePrivacyModeSubtitle =>
+      'Hide session content from the Lock Screen and Dynamic Island.';
+
+  @override
+  String get iosKeepAliveStatusUnavailable => 'Keep-alive status unavailable';
+
+  @override
+  String get iosKeepAliveSilentAudioActive => 'Silent audio active';
+
+  @override
+  String get iosKeepAliveSilentAudioInactive => 'Silent audio inactive';
+
+  @override
+  String get iosKeepAliveLocationAuthorized => 'Location authorized';
+
+  @override
+  String get iosKeepAliveLocationNotAuthorized =>
+      'Location not authorized — tap to open system settings';
+
+  @override
+  String get iosKeepAliveSurvivalExtended => 'Extended background survival';
+
+  @override
+  String get iosKeepAliveSurvivalShort => 'Standard background survival (~30s)';
+
+  @override
+  String get iosKeepAliveConfigAudioReady => 'Silent audio ready';
+
+  @override
+  String get iosKeepAliveConfigAudioOff => 'Silent audio off';
+
+  @override
+  String get iosKeepAliveConfigLocationReady => 'Location ready';
+
+  @override
+  String get iosKeepAliveConfigLocationPermissionNeeded =>
+      'Location permission needed';
+
+  @override
+  String get iosKeepAliveConfigLocationOff => 'Location off';
+
+  @override
+  String get iosKeepAliveInterruptedNotice =>
+      'Interrupted by the system previously';
+
+  @override
+  String get iosBackgroundGenerationPrivacyActiveTitle => 'Background Task';
+
+  @override
+  String get iosBackgroundGenerationPrivacyActiveDetail => 'Task in progress…';
 }

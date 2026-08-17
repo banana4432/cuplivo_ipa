@@ -26,6 +26,7 @@
 		B15A000000000000000000A4 /* CuplivoLinuxSandboxPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15A000000000000000000B7 /* CuplivoLinuxSandboxPlugin.swift */; };
 		B15A000000000000000000A5 /* CuplivoSandboxRootfsInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15A000000000000000000B8 /* CuplivoSandboxRootfsInstaller.swift */; };
 		B15A000000000000000000A6 /* alpine-rootfs.zip in Resources */ = {isa = PBXBuildFile; fileRef = B15A000000000000000000B9 /* alpine-rootfs.zip */; };
+		B15A000000000000000000CA /* BackgroundKeepAliveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15A000000000000000000CB /* BackgroundKeepAliveManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -111,6 +112,7 @@
 		B15A000000000000000000B6 /* CuplivoISHCrashGuards.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CuplivoISHCrashGuards.c; sourceTree = "<group>"; };
 		B15A000000000000000000B7 /* CuplivoLinuxSandboxPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuplivoLinuxSandboxPlugin.swift; sourceTree = "<group>"; };
 		B15A000000000000000000B8 /* CuplivoSandboxRootfsInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuplivoSandboxRootfsInstaller.swift; sourceTree = "<group>"; };
+		B15A000000000000000000CB /* BackgroundKeepAliveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundKeepAliveManager.swift; sourceTree = "<group>"; };
 		B15A000000000000000000B9 /* alpine-rootfs.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; name = "alpine-rootfs.zip"; path = "sandbox/resources/alpine-rootfs.zip"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -202,6 +204,7 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				B15A000000000000000000CB /* BackgroundKeepAliveManager.swift */,
 				A10000000000000000000010 /* KelivoGenerationActivityAttributes.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				B15A000000000000000000C1 /* iSHSandbox */,
@@ -520,6 +523,7 @@
 			files = (
 				A10000000000000000000001 /* KelivoGenerationActivityAttributes.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				B15A000000000000000000CA /* BackgroundKeepAliveManager.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				B15A000000000000000000A1 /* CuplivoISHKernel.m in Sources */,
 				B15A000000000000000000A2 /* CuplivoISHExecutor.m in Sources */,

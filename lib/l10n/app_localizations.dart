@@ -15101,6 +15101,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Workspace'**
   String get assistantEditLocalToolWorkspaceTitle;
+
+  /// No description provided for @iosKeepAliveMasterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhanced Background Execution'**
+  String get iosKeepAliveMasterTitle;
+
+  /// No description provided for @iosKeepAliveMasterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep agent tasks running while the app is in the background.'**
+  String get iosKeepAliveMasterSubtitle;
+
+  /// No description provided for @iosKeepAliveSilentAudioTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent Audio Keep-Alive'**
+  String get iosKeepAliveSilentAudioTitle;
+
+  /// No description provided for @iosKeepAliveSilentAudioSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Play an inaudible track so iOS keeps the process alive in the background.'**
+  String get iosKeepAliveSilentAudioSubtitle;
+
+  /// No description provided for @iosKeepAliveLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location Keep-Alive'**
+  String get iosKeepAliveLocationTitle;
+
+  /// No description provided for @iosKeepAliveLocationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use background location updates to keep the app alive while backgrounded.'**
+  String get iosKeepAliveLocationSubtitle;
+
+  /// No description provided for @iosKeepAlivePrivacyModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Activity Privacy Mode'**
+  String get iosKeepAlivePrivacyModeTitle;
+
+  /// No description provided for @iosKeepAlivePrivacyModeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide session content from the Lock Screen and Dynamic Island.'**
+  String get iosKeepAlivePrivacyModeSubtitle;
+
+  /// No description provided for @iosKeepAliveStatusUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep-alive status unavailable'**
+  String get iosKeepAliveStatusUnavailable;
+
+  /// No description provided for @iosKeepAliveSilentAudioActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent audio active'**
+  String get iosKeepAliveSilentAudioActive;
+
+  /// No description provided for @iosKeepAliveSilentAudioInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent audio inactive'**
+  String get iosKeepAliveSilentAudioInactive;
+
+  /// No description provided for @iosKeepAliveLocationAuthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Location authorized'**
+  String get iosKeepAliveLocationAuthorized;
+
+  /// No description provided for @iosKeepAliveLocationNotAuthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Location not authorized — tap to open system settings'**
+  String get iosKeepAliveLocationNotAuthorized;
+
+  /// No description provided for @iosKeepAliveSurvivalExtended.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended background survival'**
+  String get iosKeepAliveSurvivalExtended;
+
+  /// No description provided for @iosKeepAliveSurvivalShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard background survival (~30s)'**
+  String get iosKeepAliveSurvivalShort;
+
+  /// No description provided for @iosKeepAliveConfigAudioReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent audio ready'**
+  String get iosKeepAliveConfigAudioReady;
+
+  /// No description provided for @iosKeepAliveConfigAudioOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent audio off'**
+  String get iosKeepAliveConfigAudioOff;
+
+  /// No description provided for @iosKeepAliveConfigLocationReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Location ready'**
+  String get iosKeepAliveConfigLocationReady;
+
+  /// No description provided for @iosKeepAliveConfigLocationPermissionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission needed'**
+  String get iosKeepAliveConfigLocationPermissionNeeded;
+
+  /// No description provided for @iosKeepAliveConfigLocationOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Location off'**
+  String get iosKeepAliveConfigLocationOff;
+
+  /// No description provided for @iosKeepAliveInterruptedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupted by the system previously'**
+  String get iosKeepAliveInterruptedNotice;
+
+  /// No description provided for @iosBackgroundGenerationPrivacyActiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Background Task'**
+  String get iosBackgroundGenerationPrivacyActiveTitle;
+
+  /// No description provided for @iosBackgroundGenerationPrivacyActiveDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Task in progress…'**
+  String get iosBackgroundGenerationPrivacyActiveDetail;
 }
 
 class _AppLocalizationsDelegate

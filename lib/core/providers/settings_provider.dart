@@ -278,6 +278,14 @@ class SettingsProvider extends ChangeNotifier {
       'ios_live_activity_enabled_v1';
   static const String _iosBackgroundNotificationsEnabledKey =
       'ios_background_notifications_enabled_v1';
+  // Advanced background keep-alive settings
+  static const String _iosKeepAliveEnabledKey = 'ios_keepalive_enabled_v1';
+  static const String _iosSilentAudioKeepAliveEnabledKey =
+      'ios_silent_audio_keepalive_enabled_v1';
+  static const String _iosLocationKeepAliveEnabledKey =
+      'ios_location_keepalive_enabled_v1';
+  static const String _iosLiveActivityPrivacyModeKey =
+      'ios_live_activity_privacy_mode_v1';
   // Fonts
   static const String _displayAppFontFamilyKey = 'display_app_font_family_v1';
   static const String _displayCodeFontFamilyKey = 'display_code_font_family_v1';
@@ -1386,6 +1394,14 @@ class SettingsProvider extends ChangeNotifier {
         prefs.getBool(_iosLiveActivityEnabledKey) ?? false;
     _iosBackgroundNotificationsEnabled =
         prefs.getBool(_iosBackgroundNotificationsEnabledKey) ?? false;
+    _iosKeepAliveEnabled =
+        prefs.getBool(_iosKeepAliveEnabledKey) ?? false;
+    _iosSilentAudioKeepAliveEnabled =
+        prefs.getBool(_iosSilentAudioKeepAliveEnabledKey) ?? false;
+    _iosLocationKeepAliveEnabled =
+        prefs.getBool(_iosLocationKeepAliveEnabledKey) ?? false;
+    _iosLiveActivityPrivacyMode =
+        prefs.getBool(_iosLiveActivityPrivacyModeKey) ?? false;
 
     // load search settings
     final searchServicesStr = prefs.getString(_searchServicesKey);
@@ -2807,6 +2823,73 @@ class SettingsProvider extends ChangeNotifier {
     if (_dynamicColorSupported == v) return;
     _dynamicColorSupported = v;
     notifyListeners();
+  }
+
+  // ===== iOS advanced background keep-alive =====
+  bool _iosKeepAliveEnabled = false;
+  bool get iosKeepAliveEnabled => _iosKeepAliveEnabled;
+  Future<void> setIosKeepAliveEnabled(bool v) async {
+    if (_iosKeepAliveEnabled == v) return;
+    _iosKeepAliveEnabled = v;
+    if (!v) {
+      _iosSilentAudioKeepAliveEnabled = false;
+      _iosLocationKeepAliveEnabled = false;
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_iosKeepAliveEnabledKey, _iosKeepAliveEnabled);
+    if (!v) {
+      await prefs.setBool(_iosSilentAudioKeepAliveEnabledKey, false);
+      await prefs.setBool(_iosLocationKeepAliveEnabledKey, false);
+    }
+  }
+
+  bool _iosSilentAudioKeepAliveEnabled = false;
+  bool get iosSilentAudioKeepAliveEnabled =>
+      _iosSilentAudioKeepAliveEnabled;
+  Future<void> setIosSilentAudioKeepAliveEnabled(bool v) async {
+    if (_iosSilentAudioKeepAliveEnabled == v) return;
+    _iosSilentAudioKeepAliveEnabled = v;
+    if (v) _iosKeepAliveEnabled = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+      _iosSilentAudioKeepAliveEnabledKey,
+      _iosSilentAudioKeepAliveEnabled,
+    );
+    if (v) {
+      await prefs.setBool(_iosKeepAliveEnabledKey, true);
+    }
+  }
+
+  bool _iosLocationKeepAliveEnabled = false;
+  bool get iosLocationKeepAliveEnabled => _iosLocationKeepAliveEnabled;
+  Future<void> setIosLocationKeepAliveEnabled(bool v) async {
+    if (_iosLocationKeepAliveEnabled == v) return;
+    _iosLocationKeepAliveEnabled = v;
+    if (v) _iosKeepAliveEnabled = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+      _iosLocationKeepAliveEnabledKey,
+      _iosLocationKeepAliveEnabled,
+    );
+    if (v) {
+      await prefs.setBool(_iosKeepAliveEnabledKey, true);
+    }
+  }
+
+  bool _iosLiveActivityPrivacyMode = false;
+  bool get iosLiveActivityPrivacyMode => _iosLiveActivityPrivacyMode;
+  Future<void> setIosLiveActivityPrivacyMode(bool v) async {
+    if (_iosLiveActivityPrivacyMode == v) return;
+    _iosLiveActivityPrivacyMode = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+      _iosLiveActivityPrivacyModeKey,
+      _iosLiveActivityPrivacyMode,
+    );
   }
 
   Future<void> toggleTheme() => setThemeMode(

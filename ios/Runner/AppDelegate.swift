@@ -70,6 +70,9 @@ private let backgroundProcessingIdentifier = "com.cup11.cuplivo.background-gener
         }
         result(NSTemporaryDirectory())
       }
+
+      // Advanced background keep-alive (silent audio + location legs).
+      BackgroundKeepAliveManager.shared.register(with: controller.binaryMessenger)
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -234,7 +237,27 @@ private final class IosBackgroundGenerationHandler {
   private func beginBackgroundTask() {
     if backgroundTask != .invalid { return }
     backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "CuplivoBackgroundGeneration") { [weak self] in
-      self?.endBackgroundTask()
+      guard let self else { return }
+      // Intelligent expiry: when the silent-audio keep-alive leg is active
+      // the process is not in danger of termination, so re-arm a fresh
+      // finite task instead of letting the generation die. Without
+      // keep-alive, end the task and let the system suspend us.
+      if BackgroundKeepAliveManager.shared.keepAliveEffective {
+        let expiringId = self.backgroundTask
+        self.backgroundTask = .invalid
+        if expiringId != .invalid {
+          UIApplication.shared.endBackgroundTask(expiringId)
+        }
+        self.beginBackgroundTask()
+      } else {
+        // No keep-alive backing us — the system really will suspend the app.
+        // Record the interruption only when keep-alive was actually armed, so
+        // users who never enabled it aren't told they were 'interrupted'.
+        if BackgroundKeepAliveManager.shared.masterEnabled {
+          BackgroundKeepAliveManager.shared.recordInterruption()
+        }
+        self.endBackgroundTask()
+      }
     }
   }
 

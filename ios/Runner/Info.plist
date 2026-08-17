@@ -57,7 +57,14 @@
 	<array>
 		<string>fetch</string>
 		<string>processing</string>
+		<string>audio</string>
+		<string>location</string>
+		<string>remote-notification</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Cuplivo uses your location in the background to keep agent tasks running while the app is not in the foreground.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Cuplivo uses background location to keep agent tasks running when the app is in the background. Location data is used for keep-alive only and is not stored.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
