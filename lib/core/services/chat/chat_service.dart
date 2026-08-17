@@ -128,6 +128,24 @@ class ChatService extends ChangeNotifier {
     _initialized = false;
   }
 
+  /// Underlying Drift database, only valid once [init] has completed. Used by
+  /// the recovery / repair page to run REINDEX/VACUUM/ANALYZE without going
+  /// through the public mutation API.
+  AppDatabase? get appDatabase => _initialized ? _repo.db : null;
+
+  /// Re-open the SQLite file from scratch. Used after [RepairService]
+  /// deletes the database file (the caller is responsible for closing any
+  /// existing connection via [close] first; this method only re-runs [init]).
+  Future<void> reInit() async {
+    _initialized = false;
+    _initFuture = null;
+    _conversationsCache.clear();
+    _messagesCache.clear();
+    _draftConversations.clear();
+    notifyListeners();
+    await init();
+  }
+
   @override
   void dispose() {
     if (_initialized) {

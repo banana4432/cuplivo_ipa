@@ -1321,22 +1321,50 @@
   "sideDrawerBatchExportSuccess": "{exported} conversations exported",
   "@sideDrawerBatchExportSuccess": {
     "description": "Batch export completed successfully",
-    "placeholders": {"exported": {"type": "int"}}
+    "placeholders": {
+      "exported": {
+        "type": "int"
+      }
+    }
   },
   "sideDrawerBatchExportSuccessSkipped": "{exported} conversations exported, {skipped} empty skipped",
   "@sideDrawerBatchExportSuccessSkipped": {
     "description": "Batch export completed successfully with empty conversations skipped",
-    "placeholders": {"exported": {"type": "int"}, "skipped": {"type": "int"}}
+    "placeholders": {
+      "exported": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
   },
   "sideDrawerBatchExportPartialFailure": "{exported} exported, {failed} failed",
   "@sideDrawerBatchExportPartialFailure": {
     "description": "Batch export partially failed",
-    "placeholders": {"exported": {"type": "int"}, "failed": {"type": "int"}}
+    "placeholders": {
+      "exported": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
   },
   "sideDrawerBatchExportPartialFailureSkipped": "{exported} exported, {failed} failed, {skipped} empty skipped",
   "@sideDrawerBatchExportPartialFailureSkipped": {
     "description": "Batch export partially failed with empty conversations skipped",
-    "placeholders": {"exported": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}
+    "placeholders": {
+      "exported": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
   },
   "@sideDrawerBatchPartialFailure": {
     "placeholders": {
@@ -3769,5 +3797,72 @@
   "iosKeepAliveConfigLocationOff": "Location off",
   "iosKeepAliveInterruptedNotice": "Interrupted by the system previously",
   "iosBackgroundGenerationPrivacyActiveTitle": "Background Task",
-  "iosBackgroundGenerationPrivacyActiveDetail": "Task in progress…"
+  "iosBackgroundGenerationPrivacyActiveDetail": "Task in progress…",
+  "recoveryPageTitle": "Recovery Mode",
+  "recoveryPageDescription": "Use this page when data is corrupted, the app crashes on launch, or imports fail. All actions run on the local device — nothing is uploaded.",
+  "recoveryActionExport": "Export current data",
+  "recoveryActionExportSubtitle": "Save whatever can be read from the database to a backup zip",
+  "recoveryActionImport": "Restore from backup zip",
+  "recoveryActionImportSubtitle": "Replace local data with the contents of a chosen backup zip",
+  "recoveryActionRepair": "Repair data format",
+  "recoveryActionRepairSubtitle": "Rebuild indexes, vacuum, and update query statistics",
+  "recoveryActionSweep": "Remove orphan rows",
+  "recoveryActionSweepSubtitle": "Delete conversations and messages whose parent was removed",
+  "recoveryActionRebuild": "Rebuild database (destructive)",
+  "recoveryActionRebuildSubtitle": "Delete the database file and recreate from scratch — all local data is lost",
+  "recoveryConfirmRebuildTitle": "Rebuild database?",
+  "recoveryConfirmRebuildBody": "All local conversations, messages, assistants, and chat-side metadata will be deleted. Settings and provider configs are kept. This cannot be undone — export first if unsure.",
+  "recoveryConfirmRebuildAction": "Delete and rebuild",
+  "recoveryFailed": "{step} failed — check log",
+  "@recoveryFailed": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryRepairDone": "Repaired: reindexed {count} tables, vacuumed, analyzed in {ms} ms",
+  "@recoveryRepairDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "recoverySweepDone": "Swept {total} orphan rows",
+  "@recoverySweepDone": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "backupPageRepairSection": "Repair & Maintenance",
+  "backupPageRepairEntry": "Repair data format",
+  "backupPageSweepEntry": "Remove orphan rows",
+  "backupPageOpenRecoveryEntry": "Open recovery page…",
+  "backupPageRebuildEntry": "Rebuild database",
+  "backupPageRebuildEntryDetail": "destructive",
+  "backupPageRepairDone": "Repaired: reindexed {count} tables, vacuumed, analyzed in {ms} ms",
+  "@backupPageRepairDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "backupPageSweepDone": "Swept {total} orphan rows",
+  "@backupPageSweepDone": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

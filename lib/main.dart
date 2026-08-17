@@ -51,6 +51,7 @@ import 'features/home/services/input_draft_persistence.dart';
 import 'features/home/services/tool_approval_service.dart';
 import 'utils/sandbox_path_resolver.dart';
 import 'features/skills/skill_manager.dart';
+import 'features/recovery/pages/recovery_page.dart';
 import 'shared/widgets/app_overlays.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:system_fonts/system_fonts.dart';
@@ -99,6 +100,15 @@ Future<void> main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // Replace the default grey Flutter ErrorWidget with a minimal "the
+      // screen exploded" panel that exposes the recovery page via
+      // [navigatorKey]. Without this, a build-time exception inside the
+      // Provider tree would silently render an unhelpful ErrorWidget and
+      // leave the user unable to reach backup/restore.
+      ErrorWidget.builder = (FlutterErrorDetails details) {
+        return _BootErrorWidget(error: details.exceptionAsString());
+      };
+
       // Windows clipboard history (Win+V) sends malformed Ctrl+V key sequences.
       // Workaround Flutter engine bug flutter#143997 until upstream is fixed.
       WindowsPasteFix.instance.inject();
@@ -122,12 +132,29 @@ Future<void> main() async {
       // Desktop (Windows) window setup: hide native title bar for custom Flutter bar
       await _initDesktopWindow();
       // Avoid preloading all system fonts at launch (huge memory on desktop)
-      // Debug logging and global error handlers were enabled previously for diagnosis.
-      // They are commented out now per request to reduce log noise.
-      // FlutterError.onError = (FlutterErrorDetails details) { ... };
-      // WidgetsBinding.instance.platformDispatcher.onError = (Object error, StackTrace stack) { ... };
-      // logging.Logger.root.level = logging.Level.ALL;
-      // logging.Logger.root.onRecord.listen((rec) { ... });
+      // Route Flutter framework errors to the global logger so they are
+      // captured in the on-disk log file (and not just printed to stderr).
+      // Recovery is handled by [ErrorWidget.builder] below — when the build
+      // tree blows up, the user lands on a minimal recovery screen with a
+      // path to the recovery page instead of staring at a grey Flutter
+      // "ErrorWidget" that hides the cause.
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        FlutterLogger.log(
+          '${details.exceptionAsString()}\n${details.stack ?? ''}',
+          tag: 'FlutterError',
+          force: true,
+        );
+      };
+      WidgetsBinding.instance.platformDispatcher.onError = (Object error, StackTrace stack) {
+        debugPrint('[platformDispatcher] uncaught: $error\n$stack');
+        FlutterLogger.log(
+          '$error\n$stack',
+          tag: 'PlatformDispatcher',
+          force: true,
+        );
+        return true; // mark as handled — keep the app alive
+      };
       // Cache current Documents directory to fix sandboxed absolute paths on iOS
       await SandboxPathResolver.init();
       // Skills root is feature-level: a resolution failure (e.g. path_provider
@@ -143,13 +170,42 @@ Future<void> main() async {
           force: true,
         );
       }
-      await CodexDeviceCodeController.instance.init();
-      await GrokDeviceCodeController.instance.init();
+      try {
+        await CodexDeviceCodeController.instance.init();
+      } catch (e, st) {
+        debugPrint('[main] CodexDeviceCodeController.init failed: $e\n$st');
+        FlutterLogger.log(
+          'CodexDeviceCodeController.init failed: $e\n$st',
+          tag: 'Startup',
+          force: true,
+        );
+      }
+      try {
+        await GrokDeviceCodeController.instance.init();
+      } catch (e, st) {
+        debugPrint('[main] GrokDeviceCodeController.init failed: $e\n$st');
+        FlutterLogger.log(
+          'GrokDeviceCodeController.init failed: $e\n$st',
+          tag: 'Startup',
+          force: true,
+        );
+      }
       // Enable edge-to-edge to allow content under system bars (Android)
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       // Android: start AlarmManager service for proactive care exact alarms
       if (!kIsWeb && Platform.isAndroid) {
-        await ProactiveCareAlarmService.initialize();
+        try {
+          await ProactiveCareAlarmService.initialize();
+        } catch (e, st) {
+          debugPrint(
+            '[main] ProactiveCareAlarmService.initialize failed: $e\n$st',
+          );
+          FlutterLogger.log(
+            'ProactiveCareAlarmService.initialize failed: $e\n$st',
+            tag: 'Startup',
+            force: true,
+          );
+        }
       }
       // Start app (Flutter log capture is toggleable and off by default)
       runApp(const MyApp());
@@ -649,3 +705,83 @@ Widget _selectHome() {
 }
 
 // Overrides logic is implemented within SettingsProvider now.
+
+/// Minimal fallback shown when the widget tree fails to build (replaces the
+/// default grey Flutter ErrorWidget). Surfaces a short error message and a
+/// single button to open the recovery page so the user can export data or
+/// rebuild the database even when the rest of the UI is broken.
+class _BootErrorWidget extends StatelessWidget {
+  const _BootErrorWidget({required this.error});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ColoredBox(
+        color: const Color(0xFF1A1B21),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFFFB74D),
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'App failed to render this screen',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error,
+                  textAlign: TextAlign.center,
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFB0B0B0),
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Builder(
+                  builder: (ctx) {
+                    return ElevatedButton.icon(
+                      icon: const Icon(Icons.build_outlined),
+                      label: const Text('Open recovery page'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFB74D),
+                        foregroundColor: Colors.black,
+                      ),
+                      onPressed: () {
+                        final nav = navigatorKey.currentState;
+                        if (nav == null) return;
+                        nav.push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const RecoveryPage(),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

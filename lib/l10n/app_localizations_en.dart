@@ -8423,4 +8423,99 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get iosBackgroundGenerationPrivacyActiveDetail => 'Task in progress…';
+
+  @override
+  String get recoveryPageTitle => 'Recovery Mode';
+
+  @override
+  String get recoveryPageDescription =>
+      'Use this page when data is corrupted, the app crashes on launch, or imports fail. All actions run on the local device — nothing is uploaded.';
+
+  @override
+  String get recoveryActionExport => 'Export current data';
+
+  @override
+  String get recoveryActionExportSubtitle =>
+      'Save whatever can be read from the database to a backup zip';
+
+  @override
+  String get recoveryActionImport => 'Restore from backup zip';
+
+  @override
+  String get recoveryActionImportSubtitle =>
+      'Replace local data with the contents of a chosen backup zip';
+
+  @override
+  String get recoveryActionRepair => 'Repair data format';
+
+  @override
+  String get recoveryActionRepairSubtitle =>
+      'Rebuild indexes, vacuum, and update query statistics';
+
+  @override
+  String get recoveryActionSweep => 'Remove orphan rows';
+
+  @override
+  String get recoveryActionSweepSubtitle =>
+      'Delete conversations and messages whose parent was removed';
+
+  @override
+  String get recoveryActionRebuild => 'Rebuild database (destructive)';
+
+  @override
+  String get recoveryActionRebuildSubtitle =>
+      'Delete the database file and recreate from scratch — all local data is lost';
+
+  @override
+  String get recoveryConfirmRebuildTitle => 'Rebuild database?';
+
+  @override
+  String get recoveryConfirmRebuildBody =>
+      'All local conversations, messages, assistants, and chat-side metadata will be deleted. Settings and provider configs are kept. This cannot be undone — export first if unsure.';
+
+  @override
+  String get recoveryConfirmRebuildAction => 'Delete and rebuild';
+
+  @override
+  String recoveryFailed(String step) {
+    return '$step failed — check log';
+  }
+
+  @override
+  String recoveryRepairDone(int count, int ms) {
+    return 'Repaired: reindexed $count tables, vacuumed, analyzed in $ms ms';
+  }
+
+  @override
+  String recoverySweepDone(int total) {
+    return 'Swept $total orphan rows';
+  }
+
+  @override
+  String get backupPageRepairSection => 'Repair & Maintenance';
+
+  @override
+  String get backupPageRepairEntry => 'Repair data format';
+
+  @override
+  String get backupPageSweepEntry => 'Remove orphan rows';
+
+  @override
+  String get backupPageOpenRecoveryEntry => 'Open recovery page…';
+
+  @override
+  String get backupPageRebuildEntry => 'Rebuild database';
+
+  @override
+  String get backupPageRebuildEntryDetail => 'destructive';
+
+  @override
+  String backupPageRepairDone(int count, int ms) {
+    return 'Repaired: reindexed $count tables, vacuumed, analyzed in $ms ms';
+  }
+
+  @override
+  String backupPageSweepDone(int total) {
+    return 'Swept $total orphan rows';
+  }
 }

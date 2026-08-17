@@ -25,6 +25,7 @@ import '../../../shared/dialogs/rikkahub_migrate_dialog.dart';
 import '../../../shared/dialogs/kelivo_compat_dialog.dart';
 import '../../../core/services/backup/cherry_importer.dart';
 import '../../../core/services/backup/chatbox_importer.dart';
+import '../../recovery/pages/recovery_page.dart';
 import '../../../utils/platform_utils.dart';
 import '../widgets/backup_reminder_helpers.dart';
 
@@ -306,6 +307,9 @@ class _BackupPageState extends State<BackupPage> {
                 // Section 2: 本地备份
                 ..._buildMobileLocalBackupSection(context, l10n, vm, header),
 
+                // Section 3: 修复与维护
+                ..._buildMobileRepairSection(context, l10n, vm, header),
+
               ],
             ),
           );
@@ -485,6 +489,114 @@ class _BackupPageState extends State<BackupPage> {
                   );
                 }
               });
+            },
+          ),
+        ],
+      ),
+    ];
+  }
+
+  List<Widget> _buildMobileRepairSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    BackupProvider vm,
+    Widget Function(String text, {bool first}) header,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    Future<void> runRepair(Future<void> Function() action, String label) async {
+      await _runWithLoadingOverlay(
+        context,
+        () => action(),
+        label: label,
+      );
+    }
+
+    return [
+      header(l10n.backupPageRepairSection),
+      _iosSectionCard(
+        children: [
+          _iosNavRow(
+            context,
+            icon: Lucide.Wrench,
+            label: l10n.backupPageRepairEntry,
+            onTap: () => runRepair(
+              () async {
+                final report = await vm.repairLocalDatabase();
+                if (!context.mounted) return;
+                showAppSnackBar(
+                  context,
+                  message: l10n.backupPageRepairDone(
+                    report.reindexedTableCount,
+                    report.elapsed.inMilliseconds,
+                  ),
+                  type: NotificationType.success,
+                );
+              },
+              l10n.backupPageRepairEntry,
+            ),
+          ),
+          _iosDivider(context),
+          _iosNavRow(
+            context,
+            icon: Lucide.Broom,
+            label: l10n.backupPageSweepEntry,
+            onTap: () => runRepair(
+              () async {
+                final report = await vm.sweepOrphans();
+                if (!context.mounted) return;
+                showAppSnackBar(
+                  context,
+                  message: l10n.backupPageSweepDone(report.total),
+                  type: report.total == 0
+                      ? NotificationType.success
+                      : NotificationType.info,
+                );
+              },
+              l10n.backupPageSweepEntry,
+            ),
+          ),
+          _iosDivider(context),
+          _iosNavRow(
+            context,
+            icon: Lucide.Lifebuoy,
+            label: l10n.backupPageOpenRecoveryEntry,
+            onTap: () =>
+                RecoveryPage.open(context, error: null),
+          ),
+          _iosDivider(context),
+          _iosNavRow(
+            context,
+            icon: Lucide.Trash2,
+            label: l10n.backupPageRebuildEntry,
+            detailText: l10n.backupPageRebuildEntryDetail,
+            onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (dctx) => AlertDialog(
+                  title: Text(l10n.recoveryConfirmRebuildTitle),
+                  content: Text(l10n.recoveryConfirmRebuildBody),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dctx).pop(false),
+                      child: Text(l10n.backupPageCancel),
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.error,
+                      ),
+                      onPressed: () => Navigator.of(dctx).pop(true),
+                      child: Text(l10n.recoveryConfirmRebuildAction),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed != true) return;
+              if (!context.mounted) return;
+              await _runWithLoadingOverlay(
+                context,
+                () => vm.rebuildLocalDatabase(),
+                label: l10n.recoveryActionRebuild,
+              );
             },
           ),
         ],

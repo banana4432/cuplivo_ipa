@@ -8046,6 +8046,96 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get iosBackgroundGenerationPrivacyActiveDetail => '任务进行中…';
+
+  @override
+  String get recoveryPageTitle => '恢复模式';
+
+  @override
+  String get recoveryPageDescription =>
+      '当数据损坏、应用崩溃、或者无法导入时使用本页面。所有操作均在本地执行，不会上传任何内容。';
+
+  @override
+  String get recoveryActionExport => '导出当前数据';
+
+  @override
+  String get recoveryActionExportSubtitle => '将数据库中可读取的内容保存为备份 zip';
+
+  @override
+  String get recoveryActionImport => '从备份 zip 恢复';
+
+  @override
+  String get recoveryActionImportSubtitle => '用选中的备份 zip 覆盖本地数据';
+
+  @override
+  String get recoveryActionRepair => '修复数据格式';
+
+  @override
+  String get recoveryActionRepairSubtitle => '重建索引、清理碎片、更新统计';
+
+  @override
+  String get recoveryActionSweep => '清理孤儿记录';
+
+  @override
+  String get recoveryActionSweepSubtitle => '删除没有父记录的对话和消息';
+
+  @override
+  String get recoveryActionRebuild => '重建数据库（破坏性）';
+
+  @override
+  String get recoveryActionRebuildSubtitle => '删除数据库文件并从零重建——所有本地数据将丢失';
+
+  @override
+  String get recoveryConfirmRebuildTitle => '重建数据库？';
+
+  @override
+  String get recoveryConfirmRebuildBody =>
+      '所有本地对话、消息、助手与聊天相关元数据将被删除。设置和供应商配置会保留。此操作不可撤销——如有疑虑请先导出。';
+
+  @override
+  String get recoveryConfirmRebuildAction => '删除并重建';
+
+  @override
+  String recoveryFailed(String step) {
+    return '$step 失败——请查看日志';
+  }
+
+  @override
+  String recoveryRepairDone(int count, int ms) {
+    return '修复完成：重建 $count 张表索引、VACUUM、ANALYZE，耗时 $ms 毫秒';
+  }
+
+  @override
+  String recoverySweepDone(int total) {
+    return '清理 $total 条孤儿记录';
+  }
+
+  @override
+  String get backupPageRepairSection => '修复与维护';
+
+  @override
+  String get backupPageRepairEntry => '修复数据格式';
+
+  @override
+  String get backupPageSweepEntry => '清理孤儿记录';
+
+  @override
+  String get backupPageOpenRecoveryEntry => '打开恢复页面…';
+
+  @override
+  String get backupPageRebuildEntry => '重建数据库';
+
+  @override
+  String get backupPageRebuildEntryDetail => '破坏性';
+
+  @override
+  String backupPageRepairDone(int count, int ms) {
+    return '修复完成：重建 $count 张表索引、VACUUM、ANALYZE，耗时 $ms 毫秒';
+  }
+
+  @override
+  String backupPageSweepDone(int total) {
+    return '清理 $total 条孤儿记录';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -16090,6 +16180,96 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get iosBackgroundGenerationPrivacyActiveDetail => '任务进行中…';
+
+  @override
+  String get recoveryPageTitle => '恢复模式';
+
+  @override
+  String get recoveryPageDescription =>
+      '当数据损坏、应用崩溃、或者无法导入时使用本页面。所有操作均在本地执行，不会上传任何内容。';
+
+  @override
+  String get recoveryActionExport => '导出当前数据';
+
+  @override
+  String get recoveryActionExportSubtitle => '将数据库中可读取的内容保存为备份 zip';
+
+  @override
+  String get recoveryActionImport => '从备份 zip 恢复';
+
+  @override
+  String get recoveryActionImportSubtitle => '用选中的备份 zip 覆盖本地数据';
+
+  @override
+  String get recoveryActionRepair => '修复数据格式';
+
+  @override
+  String get recoveryActionRepairSubtitle => '重建索引、清理碎片、更新统计';
+
+  @override
+  String get recoveryActionSweep => '清理孤儿记录';
+
+  @override
+  String get recoveryActionSweepSubtitle => '删除没有父记录的对话和消息';
+
+  @override
+  String get recoveryActionRebuild => '重建数据库（破坏性）';
+
+  @override
+  String get recoveryActionRebuildSubtitle => '删除数据库文件并从零重建——所有本地数据将丢失';
+
+  @override
+  String get recoveryConfirmRebuildTitle => '重建数据库？';
+
+  @override
+  String get recoveryConfirmRebuildBody =>
+      '所有本地对话、消息、助手与聊天相关元数据将被删除。设置和供应商配置会保留。此操作不可撤销——如有疑虑请先导出。';
+
+  @override
+  String get recoveryConfirmRebuildAction => '删除并重建';
+
+  @override
+  String recoveryFailed(String step) {
+    return '$step 失败——请查看日志';
+  }
+
+  @override
+  String recoveryRepairDone(int count, int ms) {
+    return '修复完成：重建 $count 张表索引、VACUUM、ANALYZE，耗时 $ms 毫秒';
+  }
+
+  @override
+  String recoverySweepDone(int total) {
+    return '清理 $total 条孤儿记录';
+  }
+
+  @override
+  String get backupPageRepairSection => '修复与维护';
+
+  @override
+  String get backupPageRepairEntry => '修复数据格式';
+
+  @override
+  String get backupPageSweepEntry => '清理孤儿记录';
+
+  @override
+  String get backupPageOpenRecoveryEntry => '打开恢复页面…';
+
+  @override
+  String get backupPageRebuildEntry => '重建数据库';
+
+  @override
+  String get backupPageRebuildEntryDetail => '破坏性';
+
+  @override
+  String backupPageRepairDone(int count, int ms) {
+    return '修复完成：重建 $count 张表索引、VACUUM、ANALYZE，耗时 $ms 毫秒';
+  }
+
+  @override
+  String backupPageSweepDone(int total) {
+    return '清理 $total 条孤儿记录';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -24134,4 +24314,94 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get iosBackgroundGenerationPrivacyActiveDetail => '任務進行中…';
+
+  @override
+  String get recoveryPageTitle => '恢复模式';
+
+  @override
+  String get recoveryPageDescription =>
+      '当数据损坏、应用崩溃、或者无法导入时使用本页面。所有操作均在本地执行，不会上传任何内容。';
+
+  @override
+  String get recoveryActionExport => '导出当前数据';
+
+  @override
+  String get recoveryActionExportSubtitle => '将数据库中可读取的内容保存为备份 zip';
+
+  @override
+  String get recoveryActionImport => '从备份 zip 恢复';
+
+  @override
+  String get recoveryActionImportSubtitle => '用选中的备份 zip 覆盖本地数据';
+
+  @override
+  String get recoveryActionRepair => '修复数据格式';
+
+  @override
+  String get recoveryActionRepairSubtitle => '重建索引、清理碎片、更新统计';
+
+  @override
+  String get recoveryActionSweep => '清理孤儿记录';
+
+  @override
+  String get recoveryActionSweepSubtitle => '删除没有父记录的对话和消息';
+
+  @override
+  String get recoveryActionRebuild => '重建数据库（破坏性）';
+
+  @override
+  String get recoveryActionRebuildSubtitle => '删除数据库文件并从零重建——所有本地数据将丢失';
+
+  @override
+  String get recoveryConfirmRebuildTitle => '重建数据库？';
+
+  @override
+  String get recoveryConfirmRebuildBody =>
+      '所有本地对话、消息、助手与聊天相关元数据将被删除。设置和供应商配置会保留。此操作不可撤销——如有疑虑请先导出。';
+
+  @override
+  String get recoveryConfirmRebuildAction => '删除并重建';
+
+  @override
+  String recoveryFailed(String step) {
+    return '$step 失败——请查看日志';
+  }
+
+  @override
+  String recoveryRepairDone(int count, int ms) {
+    return '修复完成：重建 $count 张表索引、VACUUM、ANALYZE，耗时 $ms 毫秒';
+  }
+
+  @override
+  String recoverySweepDone(int total) {
+    return '清理 $total 条孤儿记录';
+  }
+
+  @override
+  String get backupPageRepairSection => '修复与维护';
+
+  @override
+  String get backupPageRepairEntry => '修复数据格式';
+
+  @override
+  String get backupPageSweepEntry => '清理孤儿记录';
+
+  @override
+  String get backupPageOpenRecoveryEntry => '打开恢复页面…';
+
+  @override
+  String get backupPageRebuildEntry => '重建数据库';
+
+  @override
+  String get backupPageRebuildEntryDetail => '破坏性';
+
+  @override
+  String backupPageRepairDone(int count, int ms) {
+    return '修复完成：重建 $count 张表索引、VACUUM、ANALYZE，耗时 $ms 毫秒';
+  }
+
+  @override
+  String backupPageSweepDone(int total) {
+    return '清理 $total 条孤儿记录';
+  }
 }

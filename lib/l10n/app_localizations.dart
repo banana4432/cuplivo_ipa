@@ -15239,6 +15239,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Task in progress…'**
   String get iosBackgroundGenerationPrivacyActiveDetail;
+
+  /// No description provided for @recoveryPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery Mode'**
+  String get recoveryPageTitle;
+
+  /// No description provided for @recoveryPageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this page when data is corrupted, the app crashes on launch, or imports fail. All actions run on the local device — nothing is uploaded.'**
+  String get recoveryPageDescription;
+
+  /// No description provided for @recoveryActionExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export current data'**
+  String get recoveryActionExport;
+
+  /// No description provided for @recoveryActionExportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save whatever can be read from the database to a backup zip'**
+  String get recoveryActionExportSubtitle;
+
+  /// No description provided for @recoveryActionImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore from backup zip'**
+  String get recoveryActionImport;
+
+  /// No description provided for @recoveryActionImportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace local data with the contents of a chosen backup zip'**
+  String get recoveryActionImportSubtitle;
+
+  /// No description provided for @recoveryActionRepair.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair data format'**
+  String get recoveryActionRepair;
+
+  /// No description provided for @recoveryActionRepairSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuild indexes, vacuum, and update query statistics'**
+  String get recoveryActionRepairSubtitle;
+
+  /// No description provided for @recoveryActionSweep.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove orphan rows'**
+  String get recoveryActionSweep;
+
+  /// No description provided for @recoveryActionSweepSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete conversations and messages whose parent was removed'**
+  String get recoveryActionSweepSubtitle;
+
+  /// No description provided for @recoveryActionRebuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuild database (destructive)'**
+  String get recoveryActionRebuild;
+
+  /// No description provided for @recoveryActionRebuildSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the database file and recreate from scratch — all local data is lost'**
+  String get recoveryActionRebuildSubtitle;
+
+  /// No description provided for @recoveryConfirmRebuildTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuild database?'**
+  String get recoveryConfirmRebuildTitle;
+
+  /// No description provided for @recoveryConfirmRebuildBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All local conversations, messages, assistants, and chat-side metadata will be deleted. Settings and provider configs are kept. This cannot be undone — export first if unsure.'**
+  String get recoveryConfirmRebuildBody;
+
+  /// No description provided for @recoveryConfirmRebuildAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete and rebuild'**
+  String get recoveryConfirmRebuildAction;
+
+  /// No description provided for @recoveryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'{step} failed — check log'**
+  String recoveryFailed(String step);
+
+  /// No description provided for @recoveryRepairDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Repaired: reindexed {count} tables, vacuumed, analyzed in {ms} ms'**
+  String recoveryRepairDone(int count, int ms);
+
+  /// No description provided for @recoverySweepDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Swept {total} orphan rows'**
+  String recoverySweepDone(int total);
+
+  /// No description provided for @backupPageRepairSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair & Maintenance'**
+  String get backupPageRepairSection;
+
+  /// No description provided for @backupPageRepairEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair data format'**
+  String get backupPageRepairEntry;
+
+  /// No description provided for @backupPageSweepEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove orphan rows'**
+  String get backupPageSweepEntry;
+
+  /// No description provided for @backupPageOpenRecoveryEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Open recovery page…'**
+  String get backupPageOpenRecoveryEntry;
+
+  /// No description provided for @backupPageRebuildEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebuild database'**
+  String get backupPageRebuildEntry;
+
+  /// No description provided for @backupPageRebuildEntryDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'destructive'**
+  String get backupPageRebuildEntryDetail;
+
+  /// No description provided for @backupPageRepairDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Repaired: reindexed {count} tables, vacuumed, analyzed in {ms} ms'**
+  String backupPageRepairDone(int count, int ms);
+
+  /// No description provided for @backupPageSweepDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Swept {total} orphan rows'**
+  String backupPageSweepDone(int total);
 }
 
 class _AppLocalizationsDelegate

@@ -3186,5 +3186,72 @@
   "iosKeepAliveConfigLocationOff": "定位未開啟",
   "iosKeepAliveInterruptedNotice": "曾被系統中斷",
   "iosBackgroundGenerationPrivacyActiveTitle": "背景任務",
-  "iosBackgroundGenerationPrivacyActiveDetail": "任務進行中…"
+  "iosBackgroundGenerationPrivacyActiveDetail": "任務進行中…",
+  "recoveryPageTitle": "恢复模式",
+  "recoveryPageDescription": "当数据损坏、应用崩溃、或者无法导入时使用本页面。所有操作均在本地执行，不会上传任何内容。",
+  "recoveryActionExport": "导出当前数据",
+  "recoveryActionExportSubtitle": "将数据库中可读取的内容保存为备份 zip",
+  "recoveryActionImport": "从备份 zip 恢复",
+  "recoveryActionImportSubtitle": "用选中的备份 zip 覆盖本地数据",
+  "recoveryActionRepair": "修复数据格式",
+  "recoveryActionRepairSubtitle": "重建索引、清理碎片、更新统计",
+  "recoveryActionSweep": "清理孤儿记录",
+  "recoveryActionSweepSubtitle": "删除没有父记录的对话和消息",
+  "recoveryActionRebuild": "重建数据库（破坏性）",
+  "recoveryActionRebuildSubtitle": "删除数据库文件并从零重建——所有本地数据将丢失",
+  "recoveryConfirmRebuildTitle": "重建数据库？",
+  "recoveryConfirmRebuildBody": "所有本地对话、消息、助手与聊天相关元数据将被删除。设置和供应商配置会保留。此操作不可撤销——如有疑虑请先导出。",
+  "recoveryConfirmRebuildAction": "删除并重建",
+  "recoveryFailed": "{step} 失败——请查看日志",
+  "@recoveryFailed": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryRepairDone": "修复完成：重建 {count} 张表索引、VACUUM、ANALYZE，耗时 {ms} 毫秒",
+  "@recoveryRepairDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "recoverySweepDone": "清理 {total} 条孤儿记录",
+  "@recoverySweepDone": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "backupPageRepairSection": "修复与维护",
+  "backupPageRepairEntry": "修复数据格式",
+  "backupPageSweepEntry": "清理孤儿记录",
+  "backupPageOpenRecoveryEntry": "打开恢复页面…",
+  "backupPageRebuildEntry": "重建数据库",
+  "backupPageRebuildEntryDetail": "破坏性",
+  "backupPageRepairDone": "修复完成：重建 {count} 张表索引、VACUUM、ANALYZE，耗时 {ms} 毫秒",
+  "@backupPageRepairDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "backupPageSweepDone": "清理 {total} 条孤儿记录",
+  "@backupPageSweepDone": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

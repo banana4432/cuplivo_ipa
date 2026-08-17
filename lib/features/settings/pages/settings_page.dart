@@ -15,6 +15,7 @@ import 'sponsor_page.dart';
 import 'log_viewer_page.dart';
 import '../../search/pages/search_services_page.dart';
 import '../../backup/pages/backup_page.dart';
+import '../../recovery/pages/recovery_page.dart';
 import '../../quick_phrase/pages/quick_phrases_page.dart';
 import '../../instruction_injection/pages/instruction_injection_page.dart';
 import '../../world_book/pages/world_book_page.dart';
@@ -118,7 +119,15 @@ class SettingsPage extends StatelessWidget {
             onTap: () => Navigator.of(context).maybePop(),
           ),
         ),
-        title: Text(l10n.settingsPageTitle),
+        title: _LongPressTitle(
+          // Hidden entry point: press and hold the title bar for 5 seconds
+          // to open the recovery page. No visible affordance — must be
+          // remembered from the docs (the entry is also exposed via the
+          // Backup page's Repair & Maintenance section).
+          holdDuration: const Duration(seconds: 5),
+          onActivated: () => RecoveryPage.open(context),
+          child: Text(l10n.settingsPageTitle),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -775,4 +784,97 @@ Widget _sheetDivider(BuildContext context) {
     endIndent: 16,
     color: cs.outlineVariant.withValues(alpha: 0.18),
   );
+}
+
+/// Wraps [child] in a GestureDetector that fires [onActivated] only when the
+/// user holds for at least [holdDuration]. Shows a faint progress fill while
+/// the user is holding so the gesture is at least discoverable.
+class _LongPressTitle extends StatefulWidget {
+  const _LongPressTitle({
+    required this.child,
+    required this.onActivated,
+    this.holdDuration = const Duration(seconds: 5),
+  });
+
+  final Widget child;
+  final VoidCallback onActivated;
+  final Duration holdDuration;
+
+  @override
+  State<_LongPressTitle> createState() => _LongPressTitleState();
+}
+
+class _LongPressTitleState extends State<_LongPressTitle>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  bool _fired = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: widget.holdDuration);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _start() {
+    if (_fired) return;
+    _fired = false;
+    _ctrl.forward(from: 0).whenComplete(() {
+      if (!mounted) return;
+      if (_ctrl.value >= 0.999) {
+        _fired = true;
+        widget.onActivated();
+      }
+    });
+  }
+
+  void _cancel() {
+    if (_fired) return;
+    _ctrl.stop();
+    _ctrl.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _start(),
+      onTapUp: (_) => _cancel(),
+      onTapCancel: _cancel,
+      onLongPressStart: (_) => _start(),
+      onLongPressEnd: (_) => _cancel(),
+      onLongPressCancel: _cancel,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          widget.child,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _ctrl,
+                builder: (_, __) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: _ctrl.value,
+                    child: Container(
+                      height: 2,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
