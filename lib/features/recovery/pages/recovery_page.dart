@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
-import '../../../core/database/repair_service.dart';
 import '../../../core/providers/backup_provider.dart';
 import '../../../core/models/backup.dart' show RestoreMode;
 import '../../../icons/lucide_adapter.dart';
@@ -73,13 +72,14 @@ class _RecoveryPageState extends State<RecoveryPage> {
     }
   }
 
-  Future<void> _exportCurrent() => _runGuarded(
-        AppLocalizations.of(context)!.recoveryActionExport,
-        () async {
-          final vm = context.read<BackupProvider>();
-          await vm.exportToFile();
-        },
-      );
+  Future<void> _exportCurrent() {
+    final l10n = AppLocalizations.of(context)!;
+    final vm = context.read<BackupProvider>();
+    return _runGuarded(
+      l10n.recoveryActionExport,
+      () => vm.exportToFile(),
+    );
+  }
 
   Future<void> _restoreFromZip() => _runGuarded(
         AppLocalizations.of(context)!.recoveryActionImport,
