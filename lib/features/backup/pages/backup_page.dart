@@ -538,7 +538,7 @@ class _BackupPageState extends State<BackupPage> {
           _iosDivider(context),
           _iosNavRow(
             context,
-            icon: Lucide.Broom,
+            icon: Lucide.Brush,
             label: l10n.backupPageSweepEntry,
             onTap: () => runRepair(
               () async {
@@ -558,7 +558,7 @@ class _BackupPageState extends State<BackupPage> {
           _iosDivider(context),
           _iosNavRow(
             context,
-            icon: Lucide.Lifebuoy,
+            icon: Lucide.MessageCircleWarning,
             label: l10n.backupPageOpenRecoveryEntry,
             onTap: () =>
                 RecoveryPage.open(context, error: null),

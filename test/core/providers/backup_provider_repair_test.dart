@@ -12,7 +12,7 @@ void main() {
 
     setUp(() {
       chatService = ChatService();
-      trash = TrashRestoreCoordinator();
+      trash = TrashRestoreCoordinator(chatService: chatService);
       provider = BackupProvider(
         chatService: chatService,
         trashRestoreCoordinator: trash,

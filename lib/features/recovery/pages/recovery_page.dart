@@ -7,7 +7,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../../core/database/repair_service.dart';
 import '../../../core/providers/backup_provider.dart';
-import '../../../core/services/backup/data_sync.dart' show RestoreMode;
+import '../../../core/models/backup.dart' show RestoreMode;
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_font_weights.dart';
@@ -185,7 +185,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
               _Banner(
                 color: cs.errorContainer,
                 textColor: cs.onErrorContainer,
-                icon: Lucide.AlertTriangle,
+                icon: Lucide.TriangleAlert,
                 text: widget.error!,
               ),
               const SizedBox(height: 12),
@@ -193,7 +193,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
             _Banner(
               color: cs.secondaryContainer,
               textColor: cs.onSecondaryContainer,
-              icon: Lucide.Info,
+              icon: Lucide.info,
               text: l10n.recoveryPageDescription,
             ),
             const SizedBox(height: 20),
@@ -223,7 +223,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
             ),
             const SizedBox(height: 12),
             _ActionCard(
-              icon: Lucide.Broom,
+              icon: Lucide.Brush,
               title: l10n.recoveryActionSweep,
               subtitle: l10n.recoveryActionSweepSubtitle,
               onTap: _busy ? null : _sweepOrphans,

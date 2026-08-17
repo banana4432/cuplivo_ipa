@@ -74,7 +74,7 @@ class RepairService {
   Future<RepairReport> fullRepair(AppDatabase db) async {
     final sw = Stopwatch()..start();
     final reindex = await reindexAndAnalyze(db);
-    final vacuum = await this.vacuum(db);
+    await this.vacuum(db);
     sw.stop();
     return RepairReport(
       elapsed: sw.elapsed,
