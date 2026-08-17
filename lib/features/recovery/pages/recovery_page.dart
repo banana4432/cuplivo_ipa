@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/providers/backup_provider.dart';
+import '../../../core/providers/backup_reminder_provider.dart';
 import '../../../core/models/backup.dart' show RestoreMode;
 import '../../../core/services/backup/backup_share_helper.dart';
 import '../../../icons/lucide_adapter.dart';
@@ -85,6 +86,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
     );
     if (file == null || !mounted) return;
     final shared = await BackupShareHelper.shareExportedBackup(file!);
+    if (!mounted) return;
+    if (shared) {
+      // Successful export counts as a completed backup — keeps the
+      // reminder from firing on next launch when the user just saved a
+      // fresh zip via the recovery page.
+      await context.read<BackupReminderProvider>().recordBackupCompleted();
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
