@@ -23,11 +23,11 @@ void main() {
       // break when the schema adds new required columns.
       await db.customStatement(
         'INSERT INTO conversation_rows '
-        '(id, title, created_at, updated_at, assistant_id, sort_order, '
+        '(id, title, created_at, updated_at, assistant_id, '
         'version_selections_json, summary, chat_suggestions_json, '
         'last_summarized_message_count, parent_conversation_id, '
         'conversation_kind, is_pinned, truncate_index) '
-        "VALUES ('c1', 'C1', 0, 0, NULL, 0, '{}', NULL, '[]', 0, NULL, "
+        "VALUES ('c1', 'C1', 0, 0, NULL, '{}', NULL, '[]', 0, NULL, "
         "'normal', 0, -1)",
         
       );
@@ -74,21 +74,21 @@ void main() {
       // exist. The orphan sweep should delete it.
       await db.customStatement(
         'INSERT INTO conversation_rows '
-        '(id, title, created_at, updated_at, assistant_id, sort_order, '
+        '(id, title, created_at, updated_at, assistant_id, '
         'version_selections_json, summary, chat_suggestions_json, '
         'last_summarized_message_count, parent_conversation_id, '
         'conversation_kind, is_pinned, truncate_index) '
-        "VALUES ('c-orphan', 'Orphan', 0, 0, 'missing', 0, '{}', NULL, "
+        "VALUES ('c-orphan', 'Orphan', 0, 0, 'missing', '{}', NULL, "
         "'[]', 0, NULL, 'normal', 0, -1)",
         
       );
       await db.customStatement(
         'INSERT INTO conversation_rows '
-        '(id, title, created_at, updated_at, assistant_id, sort_order, '
+        '(id, title, created_at, updated_at, assistant_id, '
         'version_selections_json, summary, chat_suggestions_json, '
         'last_summarized_message_count, parent_conversation_id, '
         'conversation_kind, is_pinned, truncate_index) '
-        "VALUES ('c-keep', 'Keep', 0, 0, NULL, 0, '{}', NULL, '[]', 0, "
+        "VALUES ('c-keep', 'Keep', 0, 0, NULL, '{}', NULL, '[]', 0, "
         "NULL, 'normal', 0, -1)",
         
       );
@@ -110,11 +110,11 @@ void main() {
       // the message and clean it.
       await db.customStatement(
         'INSERT INTO conversation_rows '
-        '(id, title, created_at, updated_at, assistant_id, sort_order, '
+        '(id, title, created_at, updated_at, assistant_id, '
         'version_selections_json, summary, chat_suggestions_json, '
         'last_summarized_message_count, parent_conversation_id, '
         'conversation_kind, is_pinned, truncate_index) '
-        "VALUES ('c1', 'C1', 0, 0, NULL, 0, '{}', NULL, '[]', 0, NULL, "
+        "VALUES ('c1', 'C1', 0, 0, NULL, '{}', NULL, '[]', 0, NULL, "
         "'normal', 0, -1)",
         
       );
