@@ -229,12 +229,30 @@ abstract class SearchServiceOptions {
 
   Map<String, dynamic> toJson();
 
-  /// Dual-read: prefers new `apiKeys` list, falls back to legacy `apiKey` string.
+  /// Dual-read: prefers the full `keyConfigs` objects written by Cuplivo
+  /// exports (lossless round-trip), then the `apiKeys` list, then the legacy
+  /// `apiKey` string. `apiKeys` may be either a list of ApiKeyConfig objects
+  /// (Cuplivo's native shape) or a list of plain key strings (Kelivo's
+  /// round-robin pool shape) when the backup originated from Kelivo.
   static List<ApiKeyConfig> readKeys(Map<String, dynamic> json) {
-    if (json['apiKeys'] != null) {
-      return (json['apiKeys'] as List)
+    final configs = json['keyConfigs'];
+    if (configs is List && configs.isNotEmpty) {
+      return configs
           .map((e) => ApiKeyConfig.fromJson(e as Map<String, dynamic>))
           .toList();
+    }
+    if (json['apiKeys'] != null) {
+      final rawKeys = json['apiKeys'] as List;
+      if (rawKeys.isNotEmpty && rawKeys.every((e) => e is Map)) {
+        return rawKeys
+            .map((e) => ApiKeyConfig.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return [
+        for (final key in rawKeys)
+          if (key.toString().trim().isNotEmpty)
+            ApiKeyConfig.create(key.toString()),
+      ];
     }
     final legacy = json['apiKey'] as String?;
     if (legacy != null && legacy.isNotEmpty) {

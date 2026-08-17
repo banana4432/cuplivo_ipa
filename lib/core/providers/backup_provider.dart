@@ -115,9 +115,30 @@ class BackupProvider extends ChangeNotifier {
     return _dataSync.listBackupFiles(_cfg);
   }
 
-  Future<File> exportToFile() => _dataSync.exportToFile(_cfg);
-  Future<File> incrementalExportToFile(IncrementalBackupConfig config) =>
-      _dataSync.exportToFile(_cfg, incremental: config);
+  Future<File> exportToFile() async {
+    _busy = true;
+    _message = null;
+    notifyListeners();
+    try {
+      return await _dataSync.exportToFile(_cfg);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<File> incrementalExportToFile(IncrementalBackupConfig config) async {
+    _busy = true;
+    _message = null;
+    notifyListeners();
+    try {
+      return await _dataSync.exportToFile(_cfg, incremental: config);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> restoreFromLocalFile(
     File file, {
     RestoreMode mode = RestoreMode.overwrite,

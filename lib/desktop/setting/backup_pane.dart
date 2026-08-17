@@ -345,7 +345,7 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
 
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
-              _buildLocalBackupSliver(context, l10n, cs),
+              _buildLocalBackupSliver(context, l10n, cs, busy),
 
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
@@ -902,6 +902,7 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
     BuildContext context,
     AppLocalizations l10n,
     ColorScheme cs,
+    bool busy,
   ) {
     return SliverToBoxAdapter(
       child: _sectionCard(
@@ -928,28 +929,30 @@ class _DesktopBackupPaneState extends State<DesktopBackupPane> {
                 label: l10n.backupPageExportToFile,
                 filled: false,
                 dense: true,
-                onTap: () async {
-                  final backupProvider = context.read<BackupProvider>();
-                  await _saveConfig();
-                  final file = await backupProvider.exportToFile();
-                  String? savePath = await FilePicker.platform.saveFile(
-                    dialogTitle: l10n.backupPageExportToFile,
-                    fileName: file.uri.pathSegments.last,
-                    type: FileType.custom,
-                    allowedExtensions: ['zip'],
-                  );
-                  if (savePath != null) {
-                    try {
-                      await File(savePath).parent.create(recursive: true);
-                      await file.copy(savePath);
-                      if (context.mounted) {
-                        await context
-                            .read<BackupReminderProvider>()
-                            .recordBackupCompleted();
-                      }
-                    } catch (_) {}
-                  }
-                },
+                onTap: busy
+                    ? () {}
+                    : () async {
+                        final backupProvider = context.read<BackupProvider>();
+                        await _saveConfig();
+                        final file = await backupProvider.exportToFile();
+                        String? savePath = await FilePicker.platform.saveFile(
+                          dialogTitle: l10n.backupPageExportToFile,
+                          fileName: file.uri.pathSegments.last,
+                          type: FileType.custom,
+                          allowedExtensions: ['zip'],
+                        );
+                        if (savePath != null) {
+                          try {
+                            await File(savePath).parent.create(recursive: true);
+                            await file.copy(savePath);
+                            if (context.mounted) {
+                              await context
+                                  .read<BackupReminderProvider>()
+                                  .recordBackupCompleted();
+                            }
+                          } catch (_) {}
+                        }
+                      },
               ),
               _DeskIosButton(
                 label: l10n.backupPageImportBackupFile,

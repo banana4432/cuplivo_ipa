@@ -33,6 +33,13 @@ class DataSync {
   final Future<Set<String>> Function(String type)? _localIdResolver;
   DataSync({required this.chatService, this._localIdResolver});
 
+  // Upstream (Kelivo) legacy chats.json importer only accepts version 1 (or a
+  // missing field); anything else is rejected with FormatException. Cuplivo's
+  // own importer never reads this field, so exporting v1 keeps backups
+  // importable into Kelivo without affecting Cuplivo round-trips. Never bump
+  // this past 1 without relaxing Kelivo's _parseChatBackup constraint first.
+  static const int _chatsJsonVersion = 1;
+
   // ===== WebDAV helpers =====
   Uri _collectionUri(WebDavConfig cfg) {
     String base = cfg.url.trim();
@@ -960,6 +967,40 @@ class DataSync {
     // prefs never hold a mirror copy (no dual truth, no staleness).
     map.addAll(KelivoImageSettingsMapper.translateToUpstream(map));
     _retainCloudAsrForExport(map);
+
+    // Kelivo's business router validates search_services_v1 entries and
+    // requires `apiKeys` to be a plain List<String> (round-robin pool).
+    // Cuplivo persists structured ApiKeyConfig objects there, so on export
+    // we split the payload: full objects move to `keyConfigs` (Cuplivo reads
+    // them back losslessly) and `apiKeys` becomes the string list Kelivo
+    // accepts. `apiKey` stays as the primary key string both sides read.
+    final searchServicesRaw = map['search_services_v1'];
+    if (searchServicesRaw is String && searchServicesRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(searchServicesRaw) as List;
+        final converted = <Map<String, dynamic>>[];
+        for (final entry in decoded) {
+          final service = (entry as Map).cast<String, dynamic>();
+          final rawKeys = service['apiKeys'];
+          if (rawKeys is List &&
+              rawKeys.isNotEmpty &&
+              rawKeys.every((e) => e is Map)) {
+            service['keyConfigs'] = rawKeys;
+            service['apiKeys'] = [
+              for (final k in rawKeys.cast<Map<String, dynamic>>())
+                if ((k['key'] as String? ?? '').trim().isNotEmpty)
+                  (k['key'] as String).trim(),
+            ];
+          }
+          converted.add(service);
+        }
+        map['search_services_v1'] = jsonEncode(converted);
+      } catch (e) {
+        debugPrint(
+          'prepareBackupFile: search_services_v1 conversion failed: $e',
+        );
+      }
+    }
     return jsonEncode(map);
   }
 
@@ -993,7 +1034,7 @@ class DataSync {
     final sink = file.openWrite();
 
     try {
-      sink.write('{"version":2,');
+      sink.write('{"version":$_chatsJsonVersion,');
 
       // --- conversations ---
       sink.write('"conversations":[');
@@ -1047,7 +1088,7 @@ class DataSync {
       sink.write(jsonEncode(geminiThoughtSigs));
       sink.write(',');
 
-      // --- group chats (v2) ---
+      // --- group chats ---
       final groups = await chatService.repo.getAllGroupChats();
       final groupPayload = <Map<String, dynamic>>[];
       final memberPayload = <Map<String, dynamic>>[];
@@ -1568,7 +1609,9 @@ class DataSync {
             }
           }
 
-          // Restore group chat metadata (v2 keys; ignored on v1 backups).
+          // Restore group chat metadata. The groupChats/groupMembers keys are
+          // present on both v1 and v2 exports and are always restored when
+          // non-empty.
           final groupChatsRaw = obj['groupChats'] as List? ?? const [];
           final groupMembersRaw = obj['groupMembers'] as List? ?? const [];
           if (groupChatsRaw.isNotEmpty) {

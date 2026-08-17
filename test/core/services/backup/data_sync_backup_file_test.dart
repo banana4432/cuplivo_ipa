@@ -20,6 +20,7 @@ import 'package:Cuplivo/core/models/incremental_backup.dart';
 import 'package:Cuplivo/core/services/backup/data_sync.dart';
 import 'package:Cuplivo/core/services/backup/kelivo_v2_exception.dart';
 import 'package:Cuplivo/core/services/chat/chat_service.dart';
+import 'package:Cuplivo/core/services/search/search_service.dart';
 
 class _FakePathProviderPlatform extends PathProviderPlatform {
   _FakePathProviderPlatform(this.root);
@@ -713,6 +714,7 @@ void main() {
           final data =
               jsonDecode(utf8.decode((chatsEntry!.readBytes() ?? <int>[])))
                   as Map<String, dynamic>;
+          expect(data['version'], 1);
           final convs = data['conversations'] as List;
           final msgs = data['messages'] as List;
           final toolEvents = data['toolEvents'] as Map;
@@ -778,6 +780,7 @@ void main() {
           final data =
               jsonDecode(utf8.decode(chatsEntry!.readBytes() ?? <int>[]))
                   as Map<String, dynamic>;
+          expect(data['version'], 1);
           final convs = data['conversations'] as List;
           final msgs = data['messages'] as List;
 
@@ -1332,6 +1335,122 @@ void main() {
                 )
                 as Map<String, dynamic>;
         expect(settings['image_upload_quality_v1'], 'original');
+      } finally {
+        archive?.clearSync();
+        input.closeSync();
+      }
+
+      await DataSync.cleanupTemporaryBackupFile(backupFile);
+    });
+
+    test(
+      'export converts search_services_v1 apiKeys to Kelivo string list',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'search_services_v1': jsonEncode([
+            {
+              'type': 'tavily',
+              'id': 'tavily-1',
+              'url': 'https://api.tavily.com/search',
+              'apiKey': 'primary-key',
+              'apiKeys': [
+                {
+                  'id': 'k1',
+                  'key': 'primary-key',
+                  'isEnabled': true,
+                  'priority': 5,
+                },
+                {
+                  'id': 'k2',
+                  'key': 'backup-key',
+                  'isEnabled': true,
+                  'priority': 6,
+                },
+              ],
+            },
+          ]),
+        });
+        final sync = DataSync(chatService: ChatService());
+        final backupFile = await sync.prepareBackupFile(
+          WebDavConfig(includeChats: false, includeFiles: false),
+        );
+
+        final input = InputFileStream(backupFile.path);
+        Archive? archive;
+        try {
+          archive = ZipDecoder().decodeStream(input);
+          final settings =
+              jsonDecode(
+                    utf8.decode(
+                      archive.findFile('settings.json')!.readBytes()!,
+                    ),
+                  )
+                  as Map<String, dynamic>;
+          final services =
+              jsonDecode(settings['search_services_v1'] as String) as List;
+          final service = services.single as Map<String, dynamic>;
+          expect(service['type'], 'tavily');
+          expect(service['apiKey'], 'primary-key');
+          expect(service['apiKeys'], ['primary-key', 'backup-key']);
+          expect(service['keyConfigs'], isA<List>());
+          expect(service['keyConfigs'], hasLength(2));
+        } finally {
+          archive?.clearSync();
+          input.closeSync();
+        }
+
+        await DataSync.cleanupTemporaryBackupFile(backupFile);
+      },
+    );
+
+    test('round-trip restores full keyConfigs for search services', () async {
+      SharedPreferences.setMockInitialValues({
+        'search_services_v1': jsonEncode([
+          {
+            'type': 'tavily',
+            'id': 'tavily-1',
+            'url': 'https://api.tavily.com/search',
+            'apiKey': 'primary-key',
+            'apiKeys': [
+              {
+                'id': 'k1',
+                'key': 'primary-key',
+                'isEnabled': true,
+                'priority': 5,
+              },
+              {
+                'id': 'k2',
+                'key': 'backup-key',
+                'isEnabled': true,
+                'priority': 6,
+              },
+            ],
+          },
+        ]),
+      });
+      final sync = DataSync(chatService: ChatService());
+      final backupFile = await sync.prepareBackupFile(
+        WebDavConfig(includeChats: false, includeFiles: false),
+      );
+
+      final input = InputFileStream(backupFile.path);
+      Archive? archive;
+      try {
+        archive = ZipDecoder().decodeStream(input);
+        final settings =
+            jsonDecode(
+                  utf8.decode(archive.findFile('settings.json')!.readBytes()!),
+                )
+                as Map<String, dynamic>;
+        final services =
+            jsonDecode(settings['search_services_v1'] as String) as List;
+        final service = services.single as Map<String, dynamic>;
+
+        final restored = SearchServiceOptions.fromJson(service);
+        expect(restored.apiKeys, hasLength(2));
+        expect(restored.apiKeys.first.key, 'primary-key');
+        expect(restored.apiKeys.last.key, 'backup-key');
+        expect(restored.apiKeys.last.isEnabled, isTrue);
       } finally {
         archive?.clearSync();
         input.closeSync();
