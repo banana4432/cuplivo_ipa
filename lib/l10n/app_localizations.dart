@@ -3251,6 +3251,12 @@ abstract class AppLocalizations {
   /// **'Download PNG'**
   String get markdownMathDownloadPngLabel;
 
+  /// No description provided for @markdownMathSavePngLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Gallery'**
+  String get markdownMathSavePngLabel;
+
   /// No description provided for @markdownMathDefaultFileNameStem.
   ///
   /// In en, this message translates to:

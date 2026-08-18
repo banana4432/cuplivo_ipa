@@ -468,6 +468,7 @@
   "markdownMathCopyLatexLabel": "複製 LaTeX",
   "markdownMathCopyPngLabel": "複製為 PNG",
   "markdownMathDownloadPngLabel": "下載 PNG",
+  "markdownMathSavePngLabel": "儲存到相簿",
   "markdownMathDefaultFileNameStem": "公式",
   "codeBlockCollapsedLines": "… 已摺疊 {n} 行",
   "@codeBlockCollapsedLines": {

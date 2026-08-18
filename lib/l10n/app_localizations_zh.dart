@@ -1691,6 +1691,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get markdownMathDownloadPngLabel => '下载 PNG';
 
   @override
+  String get markdownMathSavePngLabel => '保存到相册';
+
+  @override
   String get markdownMathDefaultFileNameStem => '公式';
 
   @override
@@ -9850,6 +9853,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get markdownMathDownloadPngLabel => '下载 PNG';
 
   @override
+  String get markdownMathSavePngLabel => '保存到相册';
+
+  @override
   String get markdownMathDefaultFileNameStem => '公式';
 
   @override
@@ -18006,6 +18012,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get markdownMathDownloadPngLabel => '下載 PNG';
+
+  @override
+  String get markdownMathSavePngLabel => '儲存到相簿';
 
   @override
   String get markdownMathDefaultFileNameStem => '公式';

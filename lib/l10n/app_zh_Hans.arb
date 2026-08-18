@@ -482,6 +482,7 @@
   "markdownMathCopyLatexLabel": "复制 LaTeX",
   "markdownMathCopyPngLabel": "复制为 PNG",
   "markdownMathDownloadPngLabel": "下载 PNG",
+  "markdownMathSavePngLabel": "保存到相册",
   "markdownMathDefaultFileNameStem": "公式",
   "codeBlockCollapsedLines": "… 已折叠 {n} 行",
   "@codeBlockCollapsedLines": {
