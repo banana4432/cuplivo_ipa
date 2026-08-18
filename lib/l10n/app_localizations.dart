@@ -5525,6 +5525,30 @@ abstract class AppLocalizations {
   /// **'Unpin'**
   String get sideDrawerMenuUnpin;
 
+  /// No description provided for @sideDrawerMenuBatchPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin selected'**
+  String get sideDrawerMenuBatchPin;
+
+  /// No description provided for @sideDrawerMenuBatchUnpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin selected'**
+  String get sideDrawerMenuBatchUnpin;
+
+  /// No description provided for @sideDrawerBatchPinSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned {count} conversations'**
+  String sideDrawerBatchPinSuccess(int count);
+
+  /// No description provided for @sideDrawerBatchUnpinSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpinned {count} conversations'**
+  String sideDrawerBatchUnpinSuccess(int count);
+
   /// No description provided for @sideDrawerMenuRegenerateTitle.
   ///
   /// In en, this message translates to:

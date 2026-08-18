@@ -3020,6 +3020,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sideDrawerMenuUnpin => 'Unpin';
 
   @override
+  String get sideDrawerMenuBatchPin => 'Pin selected';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => 'Unpin selected';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return 'Pinned $count conversations';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return 'Unpinned $count conversations';
+  }
+
+  @override
   String get sideDrawerMenuRegenerateTitle => 'Regenerate Title';
 
   @override

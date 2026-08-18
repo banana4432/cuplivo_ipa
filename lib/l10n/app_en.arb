@@ -1270,6 +1270,24 @@
   "sideDrawerMenuRename": "Rename",
   "sideDrawerMenuPin": "Pin",
   "sideDrawerMenuUnpin": "Unpin",
+  "sideDrawerMenuBatchPin": "Pin selected",
+  "sideDrawerMenuBatchUnpin": "Unpin selected",
+  "sideDrawerBatchPinSuccess": "Pinned {count} conversations",
+  "sideDrawerBatchUnpinSuccess": "Unpinned {count} conversations",
+  "@sideDrawerBatchPinSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@sideDrawerBatchUnpinSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sideDrawerMenuRegenerateTitle": "Regenerate Title",
   "sideDrawerMenuMoveTo": "Move to",
   "sideDrawerMenuDelete": "Delete",

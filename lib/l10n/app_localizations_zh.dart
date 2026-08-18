@@ -2907,6 +2907,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sideDrawerMenuUnpin => '取消置顶';
 
   @override
+  String get sideDrawerMenuBatchPin => '置顶';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => '取消置顶';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return '已置顶 $count 个会话';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return '已取消置顶 $count 个会话';
+  }
+
+  @override
   String get sideDrawerMenuRegenerateTitle => '重新生成标题';
 
   @override
@@ -11050,6 +11066,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get sideDrawerMenuUnpin => '取消置顶';
 
   @override
+  String get sideDrawerMenuBatchPin => '置顶';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => '取消置顶';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return '已置顶 $count 个会话';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return '已取消置顶 $count 个会话';
+  }
+
+  @override
   String get sideDrawerMenuRegenerateTitle => '重新生成标题';
 
   @override
@@ -19189,6 +19221,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sideDrawerMenuUnpin => '取消置頂';
+
+  @override
+  String get sideDrawerMenuBatchPin => '置頂';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => '取消置頂';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return '已置頂 $count 個會話';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return '已取消置頂 $count 個會話';
+  }
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成標題';
