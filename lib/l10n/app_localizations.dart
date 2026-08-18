@@ -844,6 +844,12 @@ abstract class AppLocalizations {
   /// **'Failed to read {name}: {error}'**
   String mountFilesPreviewReadFailed(Object error, Object name);
 
+  /// No description provided for @filePreviewOpenWithSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Open with another app'**
+  String get filePreviewOpenWithSystem;
+
   /// No description provided for @mountFilesPreviewTruncated.
   ///
   /// In en, this message translates to:
@@ -3245,6 +3251,12 @@ abstract class AppLocalizations {
   /// **'Download PNG'**
   String get markdownMathDownloadPngLabel;
 
+  /// No description provided for @markdownMathSavePngLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Gallery'**
+  String get markdownMathSavePngLabel;
+
   /// No description provided for @markdownMathDefaultFileNameStem.
   ///
   /// In en, this message translates to:
@@ -5518,6 +5530,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unpin'**
   String get sideDrawerMenuUnpin;
+
+  /// No description provided for @sideDrawerMenuBatchPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin selected'**
+  String get sideDrawerMenuBatchPin;
+
+  /// No description provided for @sideDrawerMenuBatchUnpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin selected'**
+  String get sideDrawerMenuBatchUnpin;
+
+  /// No description provided for @sideDrawerBatchPinSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned {count} conversations'**
+  String sideDrawerBatchPinSuccess(int count);
+
+  /// No description provided for @sideDrawerBatchUnpinSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpinned {count} conversations'**
+  String sideDrawerBatchUnpinSuccess(int count);
 
   /// No description provided for @sideDrawerMenuRegenerateTitle.
   ///

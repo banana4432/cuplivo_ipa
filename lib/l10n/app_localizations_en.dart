@@ -453,6 +453,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get filePreviewOpenWithSystem => 'Open with another app';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return 'Preview truncated: showing the first lines of $total';
   }
@@ -1752,6 +1755,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get markdownMathDownloadPngLabel => 'Download PNG';
 
   @override
+  String get markdownMathSavePngLabel => 'Save to Gallery';
+
+  @override
   String get markdownMathDefaultFileNameStem => 'math';
 
   @override
@@ -3015,6 +3021,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sideDrawerMenuUnpin => 'Unpin';
+
+  @override
+  String get sideDrawerMenuBatchPin => 'Pin selected';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => 'Unpin selected';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return 'Pinned $count conversations';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return 'Unpinned $count conversations';
+  }
 
   @override
   String get sideDrawerMenuRegenerateTitle => 'Regenerate Title';

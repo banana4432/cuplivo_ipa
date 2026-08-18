@@ -210,6 +210,7 @@
   "mountFilesPreviewBinary": "{name} is a binary file — cannot preview",
   "mountFilesPreviewTooLarge": "{name} is too large to preview",
   "mountFilesPreviewReadFailed": "Failed to read {name}: {error}",
+  "filePreviewOpenWithSystem": "Open with another app",
   "mountFilesPreviewTruncated": "Preview truncated: showing the first lines of {total}",
   "mountFilesMoreButton": "More",
   "mountFilesOpenButton": "Open",
@@ -698,6 +699,7 @@
   "markdownMathCopyLatexLabel": "Copy LaTeX",
   "markdownMathCopyPngLabel": "Copy as PNG",
   "markdownMathDownloadPngLabel": "Download PNG",
+  "markdownMathSavePngLabel": "Save to Gallery",
   "markdownMathDefaultFileNameStem": "math",
   "codeBlockCollapsedLines": "… {n} lines folded",
   "@codeBlockCollapsedLines": {
@@ -1269,6 +1271,24 @@
   "sideDrawerMenuRename": "Rename",
   "sideDrawerMenuPin": "Pin",
   "sideDrawerMenuUnpin": "Unpin",
+  "sideDrawerMenuBatchPin": "Pin selected",
+  "sideDrawerMenuBatchUnpin": "Unpin selected",
+  "sideDrawerBatchPinSuccess": "Pinned {count} conversations",
+  "sideDrawerBatchUnpinSuccess": "Unpinned {count} conversations",
+  "@sideDrawerBatchPinSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@sideDrawerBatchUnpinSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sideDrawerMenuRegenerateTitle": "Regenerate Title",
   "sideDrawerMenuMoveTo": "Move to",
   "sideDrawerMenuDelete": "Delete",

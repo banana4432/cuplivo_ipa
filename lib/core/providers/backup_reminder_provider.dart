@@ -56,7 +56,7 @@ class BackupReminderProvider extends ChangeNotifier {
     _lastBackupAt = _parseDate(prefs.getString(_lastBackupAtKey));
     _loaded = true;
     evaluateDue(DateTime.now(), notify: false);
-    if (startTimer) _startTimer();
+    if (startTimer) _schedule();
     notifyListeners();
   }
 
@@ -84,6 +84,7 @@ class BackupReminderProvider extends ChangeNotifier {
 
     await _persist();
     evaluateDue(currentTime, notify: false);
+    _schedule();
     notifyListeners();
   }
 
@@ -106,6 +107,7 @@ class BackupReminderProvider extends ChangeNotifier {
     _snoozedForSession = false;
     _shouldShowReminder = false;
     await _persist();
+    _schedule();
     notifyListeners();
   }
 
@@ -114,6 +116,7 @@ class BackupReminderProvider extends ChangeNotifier {
     _snoozedForSession = false;
     await _persist();
     evaluateDue(_lastBackupAt!, notify: false);
+    _schedule();
     notifyListeners();
   }
 
@@ -130,6 +133,7 @@ class BackupReminderProvider extends ChangeNotifier {
     if (!_shouldShowReminder && _snoozedForSession) return;
     _snoozedForSession = true;
     _shouldShowReminder = false;
+    _schedule();
     notifyListeners();
   }
 
@@ -152,10 +156,25 @@ class BackupReminderProvider extends ChangeNotifier {
     await _setDate(prefs, _lastBackupAtKey, _lastBackupAt);
   }
 
-  void _startTimer() {
+  /// Arms a one-shot timer for the next reminder instead of polling every
+  /// minute. Runs only while the reminder is enabled (and not snoozed); all
+  /// state changes reschedule, so the event loop stays idle between reminders.
+  void _schedule() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _timer = null;
+    if (!_enabled || _snoozedForSession) return;
+    final next = nextReminderAt;
+    if (next == null) return;
+    final now = DateTime.now();
+    if (!now.isBefore(next)) {
+      // Already due: surface immediately (evaluateDue was called by the
+      // caller) and stay idle until the user acts, which reschedules.
+      return;
+    }
+    _timer = Timer(next.difference(now), () {
       evaluateDue(DateTime.now());
+      // No reschedule here: the reminder stays visible until the user backs
+      // up or snoozes, both of which call _schedule() with the new anchor.
     });
   }
 
