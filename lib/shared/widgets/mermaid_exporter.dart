@@ -41,7 +41,7 @@ Map<String, String> buildThemeVarsFromColorScheme(ColorScheme cs) {
     'tertiaryColor': hex(cs.tertiary),
     'tertiaryTextColor': hex(cs.onTertiary),
     'tertiaryBorderColor': hex(cs.tertiary),
-    'background': hex(cs.surface),
+    'background': 'transparent',
     'mainBkg': hex(cs.primaryContainer),
     'secondBkg': hex(cs.secondaryContainer),
     'lineColor': hex(cs.onSurface),
@@ -116,7 +116,9 @@ Future<void> preRenderMermaidCodesForExport(
       // Wait initial frame and a small delay for mermaid.run
       await ready.future;
       await Future<void>.delayed(const Duration(milliseconds: 500));
-      final toBytes = handle.exportPngBytes;
+      // Transparent bytes match in-app display (the export surface behind the
+      // block is opaque, so the PNG stays readable in the exported image).
+      final toBytes = handle.exportPngBytesTransparent ?? handle.exportPngBytes;
       if (toBytes != null) {
         Uint8List? bytes;
         // Retry a few times as Mermaid may not be ready immediately

@@ -16,10 +16,12 @@ class MermaidViewHandle {
   final Widget widget;
   final Future<bool> Function() exportPng;
   final Future<Uint8List?> Function()? exportPngBytes;
+  final Future<Uint8List?> Function()? exportPngBytesTransparent;
   MermaidViewHandle({
     required this.widget,
     required this.exportPng,
     this.exportPngBytes,
+    this.exportPngBytesTransparent,
   });
 }
 
@@ -171,10 +173,12 @@ class _MermaidInlineWindowsViewState extends State<_MermaidInlineWindowsView> {
     return entries.map((e) => '${e.key}=${e.value}').join('&');
   }
 
-  Future<Uint8List?> exportPngBytes() async {
+  Future<Uint8List?> exportPngBytes({bool transparent = false}) async {
     try {
       _exportCompleter = Completer<String?>();
-      _controller.executeScript('exportSvgToPng();');
+      _controller.executeScript(
+        transparent ? 'exportSvgToPng("transparent");' : 'exportSvgToPng();',
+      );
       final b64 = await _exportCompleter!.future.timeout(
         const Duration(seconds: 8),
       );
@@ -219,7 +223,11 @@ class _MermaidInlineWindowsViewState extends State<_MermaidInlineWindowsView> {
     String mermaidJs,
     Map<String, String>? themeVars,
   ) {
-    final bg = dark ? '#212121' : '#f8f8f8';
+    // The page itself is transparent (the block container provides the
+    // readability mask behind the diagram); the export canvas keeps an opaque
+    // fill so the saved PNG has a background on any viewer.
+    final bg = 'transparent';
+    final exportBg = dark ? '#212121' : '#f8f8f8';
     final fg = dark ? '#eaeaea' : '#222222';
     final escaped = code
         .replaceAll('&', '&amp;')
@@ -262,8 +270,9 @@ class _MermaidInlineWindowsViewState extends State<_MermaidInlineWindowsView> {
           }
         }catch(e){}
       }
-      function exportSvgToPng(){
+      function exportSvgToPng(bg){
         try{
+          bg = bg || '$exportBg';
           if (!hasCanvasPngSupport()) { sendExport('__UNSUPPORTED__'); return; }
           const root = document.querySelector('.mermaid');
           if (hasMermaidRenderError(root)) { sendExport(''); return; }
@@ -298,8 +307,10 @@ class _MermaidInlineWindowsViewState extends State<_MermaidInlineWindowsView> {
           const img = new Image();
           img.onload = function(){
             try {
-              ctx.fillStyle = '$bg';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              if (bg && bg !== 'transparent') {
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+              }
               ctx.drawImage(img, padding * scale, padding * scale, w * scale, h * scale);
               const data = canvas.toDataURL('image/png');
               const b64 = data.split(',')[1] || '';
@@ -340,7 +351,7 @@ class _MermaidInlineWindowsViewState extends State<_MermaidInlineWindowsView> {
           try {
             const data = JSON.parse(event.data || '{}');
             if (data.action === 'export') {
-              exportSvgToPng();
+              exportSvgToPng(data.bg);
             } else if (data.action === 'height') {
               postHeight();
             }
@@ -409,10 +420,21 @@ MermaidViewHandle? createMermaidView(
       return null;
     }
 
+    Future<Uint8List?> doExportBytesTransparent() async {
+      try {
+        final state = usedKey.currentState;
+        if (state is _MermaidInlineWindowsViewState) {
+          return await state.exportPngBytes(transparent: true);
+        }
+      } catch (_) {}
+      return null;
+    }
+
     return MermaidViewHandle(
       widget: widget,
       exportPng: doExport,
       exportPngBytes: doExportBytes,
+      exportPngBytesTransparent: doExportBytesTransparent,
     );
   }
 
@@ -449,10 +471,21 @@ MermaidViewHandle? createMermaidView(
     return null;
   }
 
+  Future<Uint8List?> doExportBytesTransparent() async {
+    try {
+      final state = usedKey.currentState;
+      if (state is _MermaidInlineWebViewState) {
+        return await state.exportPngBytes(transparent: true);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   return MermaidViewHandle(
     widget: widget,
     exportPng: doExport,
     exportPngBytes: doExportBytes,
+    exportPngBytesTransparent: doExportBytesTransparent,
   );
 }
 
@@ -490,6 +523,7 @@ class _MermaidInlineWebViewState extends State<_MermaidInlineWebView> {
     } catch (_) {}
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
       ..addJavaScriptChannel(
         'HeightChannel',
         onMessageReceived: (JavaScriptMessage msg) {
@@ -570,7 +604,11 @@ class _MermaidInlineWebViewState extends State<_MermaidInlineWebView> {
     String mermaidJs,
     Map<String, String>? themeVars,
   ) {
-    final bg = dark ? '#212121' : '#f8f8f8';
+    // Page transparent (container provides the mask); display exports go
+    // transparent (`exportSvgToPng("transparent")`), saved PNGs stay opaque
+    // via the default exportBg fill.
+    final bg = 'transparent';
+    final exportBg = dark ? '#212121' : '#f8f8f8';
     final fg = dark ? '#eaeaea' : '#222222';
     final escaped = code
         .replaceAll('&', '&amp;')
@@ -612,8 +650,9 @@ class _MermaidInlineWebViewState extends State<_MermaidInlineWebView> {
           HeightChannel.postMessage(String(h));
         }catch(e){/*ignore*/}
       }
-      window.exportSvgToPng = function(){
+      window.exportSvgToPng = function(bg){
         try{
+          bg = bg || '$exportBg';
           if (!hasCanvasPngSupport()) { ExportChannel.postMessage('__UNSUPPORTED__'); return; }
           const root = document.querySelector('.mermaid');
           if (hasMermaidRenderError(root)) { ExportChannel.postMessage(''); return; }
@@ -648,8 +687,10 @@ class _MermaidInlineWebViewState extends State<_MermaidInlineWebView> {
           const img = new Image();
           img.onload = function(){
             try {
-              ctx.fillStyle = '$bg';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              if (bg && bg !== 'transparent') {
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+              }
               ctx.drawImage(img, padding * scale, padding * scale, w * scale, h * scale);
               const data = canvas.toDataURL('image/png');
               const b64 = data.split(',')[1] || '';
@@ -760,10 +801,12 @@ class _MermaidInlineWebViewState extends State<_MermaidInlineWebView> {
     super.dispose();
   }
 
-  Future<Uint8List?> exportPngBytes() async {
+  Future<Uint8List?> exportPngBytes({bool transparent = false}) async {
     try {
       _exportCompleter = Completer<String?>();
-      await _controller.runJavaScript('exportSvgToPng();');
+      await _controller.runJavaScript(
+        transparent ? 'exportSvgToPng("transparent");' : 'exportSvgToPng();',
+      );
       final b64 = await _exportCompleter!.future.timeout(
         const Duration(seconds: 8),
       );

@@ -4,6 +4,15 @@ import '../../icons/lucide_adapter.dart';
 import '../../theme/app_font_weights.dart';
 import 'ios_tactile.dart';
 
+/// Block fill translucency hierarchy (issue #298): markdown blocks paint a
+/// translucent tint instead of an opaque surface so the chat wallpaper and
+/// frosted bubbles show through. Details are pure UI chrome (lowest opacity),
+/// tables are data surfaces (middle), code blocks and preview islands carry
+/// content that needs a readability mask (highest).
+const double kBlockFillAlphaDetails = 0.55;
+const double kBlockFillAlphaTable = 0.72;
+const double kBlockFillAlphaContent = 0.90;
+
 class PreviewBlockColors {
   const PreviewBlockColors({
     required this.body,
@@ -25,29 +34,55 @@ class PreviewBlockColors {
   final Color textSecondary;
   final Color textTertiary;
 
-  static PreviewBlockColors resolve(bool isDark) {
+  static PreviewBlockColors resolve(bool isDark, ColorScheme cs) {
+    final surface = cs.surface;
+    final onSurface = cs.onSurface;
     if (isDark) {
-      return const PreviewBlockColors(
-        body: Color(0xFF212121),
-        header: Color(0xFF303030),
-        border: Color(0xFF383838),
-        tabTrack: Color(0xF2212121),
-        tabSelected: Color(0xFF333333),
-        textPrimary: Color(0xFFE6E6E6),
-        textSecondary: Color(0xFFA0A0A0),
-        textTertiary: Color(0xFF707070),
+      return PreviewBlockColors(
+        body: Color.alphaBlend(
+          onSurface.withValues(alpha: 0.06),
+          surface,
+        ).withValues(alpha: kBlockFillAlphaContent),
+        header: Color.alphaBlend(
+          onSurface.withValues(alpha: 0.10),
+          surface,
+        ).withValues(alpha: kBlockFillAlphaContent),
+        border: cs.outlineVariant.withValues(alpha: 0.35),
+        tabTrack: Color.alphaBlend(
+          onSurface.withValues(alpha: 0.05),
+          surface,
+        ).withValues(alpha: 0.75),
+        tabSelected: Color.alphaBlend(
+          onSurface.withValues(alpha: 0.12),
+          surface,
+        ).withValues(alpha: 0.95),
+        textPrimary: const Color(0xFFE6E6E6),
+        textSecondary: const Color(0xFFA0A0A0),
+        textTertiary: const Color(0xFF707070),
       );
     }
 
-    return const PreviewBlockColors(
-      body: Color(0xFFF8F8F8),
-      header: Color(0xFFEDEDED),
-      border: Color(0xFFE0E0E0),
-      tabTrack: Color(0xCCD9D9D9),
-      tabSelected: Color(0xFFFFFFFF),
-      textPrimary: Color(0xFF261208),
-      textSecondary: Color(0xFF46352B),
-      textTertiary: Color(0xFF5B4C43),
+    return PreviewBlockColors(
+      body: Color.alphaBlend(
+        onSurface.withValues(alpha: 0.03),
+        surface,
+      ).withValues(alpha: kBlockFillAlphaContent),
+      header: Color.alphaBlend(
+        onSurface.withValues(alpha: 0.06),
+        surface,
+      ).withValues(alpha: kBlockFillAlphaContent),
+      border: cs.outlineVariant.withValues(alpha: 0.45),
+      tabTrack: Color.alphaBlend(
+        onSurface.withValues(alpha: 0.03),
+        surface,
+      ).withValues(alpha: 0.75),
+      tabSelected: Color.alphaBlend(
+        onSurface.withValues(alpha: 0.08),
+        surface,
+      ).withValues(alpha: 0.95),
+      textPrimary: const Color(0xFF261208),
+      textSecondary: const Color(0xFF46352B),
+      textTertiary: const Color(0xFF5B4C43),
     );
   }
 }

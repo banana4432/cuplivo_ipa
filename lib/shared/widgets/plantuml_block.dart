@@ -62,7 +62,10 @@ class _PlantUMLBlockState extends State<PlantUMLBlock> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
     final exporting = ExportCaptureScope.of(context);
-    final colors = PreviewBlockColors.resolve(isDark);
+    final colors = PreviewBlockColors.resolve(
+      isDark,
+      Theme.of(context).colorScheme,
+    );
 
     return Container(
       width: double.infinity,

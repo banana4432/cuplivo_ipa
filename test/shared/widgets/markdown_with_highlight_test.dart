@@ -5,6 +5,8 @@ import 'package:Cuplivo/shared/widgets/markdown_with_highlight.dart';
 import 'package:Cuplivo/shared/widgets/export_capture_scope.dart';
 import 'package:Cuplivo/shared/widgets/html_preview_block.dart';
 import 'package:Cuplivo/shared/widgets/mermaid_image_cache.dart';
+import 'package:Cuplivo/shared/widgets/mermaid_exporter.dart';
+import 'package:Cuplivo/shared/widgets/tabbed_preview_block.dart';
 import 'package:Cuplivo/core/providers/settings_provider.dart';
 import 'package:Cuplivo/icons/lucide_adapter.dart';
 import 'package:Cuplivo/l10n/app_localizations.dart';
@@ -3625,6 +3627,124 @@ press5
     );
 
     expect(expandedSize.width, closeTo(360, 2));
+  });
+
+  group('block fill translucency (issue #298)', () {
+    double? fillAlpha(WidgetTester tester, Finder finder) {
+      final container = tester.widget<Container>(finder);
+      final decoration = container.decoration;
+      expect(decoration, isA<BoxDecoration>());
+      return (decoration as BoxDecoration).color?.a;
+    }
+
+    testWidgets('details block fill is translucent in dark mode', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _markdownHarness(
+          '<details><summary>更多信息</summary>隐藏内容</details>',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.indigo,
+              brightness: Brightness.dark,
+            ),
+          ),
+          themeMode: ThemeMode.dark,
+        ),
+      );
+      await tester.pump();
+
+      final block = find.byKey(const ValueKey('details-surface'));
+      expect(block, findsOneWidget);
+      expect(fillAlpha(tester, block), closeTo(kBlockFillAlphaDetails, 0.01));
+    });
+
+    testWidgets('details block fill is translucent in light mode', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _markdownHarness('<details><summary>更多信息</summary>隐藏内容</details>'),
+      );
+      await tester.pump();
+
+      final block = find.byKey(const ValueKey('details-surface'));
+      expect(block, findsOneWidget);
+      expect(fillAlpha(tester, block), closeTo(kBlockFillAlphaDetails, 0.01));
+    });
+
+    testWidgets('table block fill is translucent', (tester) async {
+      await tester.pumpWidget(
+        _markdownHarness('''
+| Name | Value |
+| - | - |
+| Alpha | Beta |
+''', width: 360),
+      );
+      await tester.pump();
+
+      final block = find.byKey(const ValueKey('markdown-table-block'));
+      expect(block, findsOneWidget);
+      expect(fillAlpha(tester, block), closeTo(kBlockFillAlphaTable, 0.01));
+    });
+
+    testWidgets('code block fill is translucent', (tester) async {
+      await tester.pumpWidget(_markdownHarness('```dart\nvoid main() {}\n```'));
+      await tester.pump();
+
+      final block = find.byKey(const ValueKey('code-block-surface'));
+      expect(block, findsOneWidget);
+      expect(fillAlpha(tester, block), closeTo(kBlockFillAlphaContent, 0.01));
+    });
+
+    testWidgets('mermaid themeVars request a transparent background', (
+      tester,
+    ) async {
+      addTearDown(MermaidImageCache.clear);
+      addTearDown(() => debugMermaidBitmapRenderOverride = null);
+      Map<String, String>? captured;
+      debugMermaidBitmapRenderOverride = (code, isDark, themeVars) async {
+        captured = themeVars;
+        return MermaidBitmapRenderResult.failed();
+      };
+
+      await tester.pumpWidget(
+        _markdownHarness('```mermaid\ngraph TD\nA-->B\n```'),
+      );
+      await tester.pump(const Duration(milliseconds: 240));
+      await tester.pump();
+
+      expect(captured, isNotNull);
+      expect(captured!['background'], 'transparent');
+    });
+
+    test('PreviewBlockColors fills are translucent and theme-derived', () {
+      final light = ColorScheme.fromSeed(seedColor: Colors.indigo);
+      final dark = ColorScheme.fromSeed(
+        seedColor: Colors.indigo,
+        brightness: Brightness.dark,
+      );
+      for (final cs in [light, dark]) {
+        final colors = PreviewBlockColors.resolve(
+          cs.brightness == Brightness.dark,
+          cs,
+        );
+        expect(colors.body.a, closeTo(kBlockFillAlphaContent, 0.01));
+        expect(colors.header.a, closeTo(kBlockFillAlphaContent, 0.01));
+        expect(colors.tabSelected.a, greaterThan(colors.body.a));
+      }
+    });
+
+    test('mermaid export theme vars use a transparent background', () {
+      final light = ColorScheme.fromSeed(seedColor: Colors.indigo);
+      final dark = ColorScheme.fromSeed(
+        seedColor: Colors.indigo,
+        brightness: Brightness.dark,
+      );
+      for (final cs in [light, dark]) {
+        final vars = buildThemeVarsFromColorScheme(cs);
+        expect(vars['background'], 'transparent');
+      }
+    });
   });
 
   testWidgets(
