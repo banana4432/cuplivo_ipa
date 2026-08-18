@@ -16,6 +16,7 @@ import '../../../core/services/proactive_care_alarm_service.dart';
 import '../../../core/services/proactive_care_message_flow.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/utils/conversation_tree.dart';
+import '../../../utils/utf16_safe_cut.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../chat/widgets/chat_message_widget.dart' show ToolUIPart;
@@ -56,9 +57,9 @@ String buildCompressContextContent(
   final maxChars = options.maxChars ?? CompressContextOptions.defaultMaxChars;
   if (maxChars <= 0 || joined.length <= maxChars) return joined;
   return switch (options.mode) {
-    CompressContextLimitMode.start => joined.substring(0, maxChars),
+    CompressContextLimitMode.start => truncateHeadUtf16Safe(joined, maxChars),
     CompressContextLimitMode.recent => joined.substring(
-      joined.length - maxChars,
+      utf16SafeTailStart(joined, joined.length - maxChars),
     ),
     CompressContextLimitMode.unlimited ||
     CompressContextLimitMode.keepRecent => joined,
@@ -1458,7 +1459,7 @@ class HomeViewModel extends ChangeNotifier {
               '${m.role == 'assistant' ? 'Assistant' : 'User'}: ${m.content}',
         )
         .join('\n\n');
-    final content = joined.length > 3000 ? joined.substring(0, 3000) : joined;
+    final content = truncateHeadUtf16Safe(joined, 3000);
     final locale = Localizations.localeOf(_contextProvider).toLanguageTag();
 
     String prompt = settings.titlePrompt

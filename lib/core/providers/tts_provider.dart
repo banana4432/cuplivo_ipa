@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../utils/utf16_safe_cut.dart';
 import '../services/network/logging_http_client.dart';
 import '../services/tts/network_tts.dart';
 import '../services/tts/tts_playback_models.dart';
@@ -799,7 +800,9 @@ class TtsProvider extends ChangeNotifier {
       _advanceSystemChunkOrFinish();
       return;
     }
-    final text = chunk.text.substring(charOffset);
+    final text = chunk.text.substring(
+      utf16SafeTailStart(chunk.text, charOffset),
+    );
     final ok = await _trySpeak(text);
     if (!ok && session == _sessionId) {
       _error = 'TTS speak failed';

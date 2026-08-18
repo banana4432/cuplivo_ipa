@@ -324,7 +324,10 @@ class _HtmlPreviewBlockState extends State<HtmlPreviewBlock> {
     final l10n = AppLocalizations.of(context)!;
     final exporting = ExportCaptureScope.of(context);
     final settings = context.watch<SettingsProvider>();
-    final colors = PreviewBlockColors.resolve(isDark);
+    final colors = PreviewBlockColors.resolve(
+      isDark,
+      Theme.of(context).colorScheme,
+    );
     // While streaming, the show-code setting is authoritative for the tab;
     // otherwise the user-selected tab applies. Export always forces the Code
     // tab (platform WebViews cannot be captured offscreen).

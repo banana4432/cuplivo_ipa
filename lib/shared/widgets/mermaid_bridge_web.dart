@@ -11,10 +11,12 @@ class MermaidViewHandle {
   final Widget widget;
   final Future<bool> Function() exportPng;
   final Future<Uint8List?> Function()? exportPngBytes;
+  final Future<Uint8List?> Function()? exportPngBytesTransparent;
   MermaidViewHandle({
     required this.widget,
     required this.exportPng,
     this.exportPngBytes,
+    this.exportPngBytesTransparent,
   });
 }
 
@@ -125,9 +127,9 @@ MermaidViewHandle? createMermaidView(
       img.src =
           'data:image/svg+xml;charset=utf-8,${Uri.encodeComponent(xmlRaw)}';
       await completer.future;
-      final bg = (themeVars != null && themeVars['background'] != null)
-          ? themeVars['background']!
-          : '#ffffff';
+      // Exported PNG keeps an opaque fill (dark/light constants, not the
+      // page's themeVars background which may be 'transparent').
+      final bg = dark ? '#212121' : '#f8f8f8';
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, canvas.width!.toDouble(), canvas.height!.toDouble());
       ctx.drawImageScaled(img, 0, 0, canvas.width!, canvas.height!);
@@ -153,6 +155,7 @@ MermaidViewHandle? createMermaidView(
     widget: HtmlElementView(viewType: viewType),
     exportPng: export,
     exportPngBytes: exportBytes,
+    exportPngBytesTransparent: exportBytes,
   );
 }
 
