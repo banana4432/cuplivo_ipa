@@ -6,6 +6,7 @@ import 'package:Cuplivo/shared/widgets/export_capture_scope.dart';
 import 'package:Cuplivo/shared/widgets/html_preview_block.dart';
 import 'package:Cuplivo/shared/widgets/mermaid_image_cache.dart';
 import 'package:Cuplivo/shared/widgets/mermaid_exporter.dart';
+import 'package:Cuplivo/shared/widgets/snackbar.dart';
 import 'package:Cuplivo/shared/widgets/tabbed_preview_block.dart';
 import 'package:Cuplivo/core/providers/settings_provider.dart';
 import 'package:Cuplivo/icons/lucide_adapter.dart';
@@ -20,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_math_fork/tex.dart' show TexEncoderExt;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as image_lib;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -3820,6 +3822,7 @@ void main() {
       expect(find.text('Copy LaTeX'), findsOneWidget);
       expect(find.text('Copy as PNG'), findsOneWidget);
       expect(find.text('Download PNG'), findsOneWidget);
+      expect(find.text('Save to Gallery'), findsOneWidget);
     },
   );
 
@@ -3884,8 +3887,201 @@ void main() {
       expect(find.text('Copy LaTeX'), findsOneWidget);
       expect(find.text('Copy as PNG'), findsOneWidget);
       expect(find.text('Download PNG'), findsOneWidget);
+      // Photo-album save is mobile-only: desktop saves through the file dialog.
+      expect(find.text('Save to Gallery'), findsNothing);
     },
   );
+
+  testWidgets(
+    'MarkdownWithCodeHighlight saves math PNG to gallery with transparent tight bounds',
+    (tester) async {
+      markdownMathTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => markdownMathTargetPlatformOverride = null);
+
+      Uint8List? savedBytes;
+      String? savedName;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('image_gallery_saver_plus'),
+            (call) async {
+              if (call.method == 'saveImageToGallery') {
+                final args = Map<String, dynamic>.from(call.arguments as Map);
+                savedBytes = args['imageBytes'] as Uint8List?;
+                savedName = args['name'] as String?;
+                return <String, Object>{'isSuccess': true};
+              }
+              return null;
+            },
+          );
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('image_gallery_saver_plus'),
+              null,
+            );
+      });
+
+      await tester.pumpWidget(_markdownHarness(r'\[E = mc^2\]', width: 360));
+      await tester.pump();
+
+      await tester.longPress(
+        find.byType(Math),
+        warnIfMissed: false, // Math's RenderLine is paint-only; the gesture
+        // lands on the enclosing export GestureDetector.
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save to Gallery'));
+      await tester.pump();
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(savedBytes, isNotNull);
+      expect(savedName, startsWith('cuplivo-math-'));
+      final decoded = image_lib.decodePng(savedBytes!);
+      expect(decoded, isNotNull);
+      // The off-screen export renderer has a transparent background: corner
+      // pixels keep alpha 0 instead of inheriting the chat surface color.
+      final corner = decoded!.getPixel(0, 0);
+      expect(corner.a, 0);
+      expect(corner.r, 0);
+      expect(corner.g, 0);
+      expect(corner.b, 0);
+      // Export scale is independent of the chat display: the captured height
+      // is ~4x the formula's logical height (exportPixelRatio = 4.0).
+      final mathBox = tester.renderObject<RenderBox>(find.byType(Math));
+      expect(decoded.height, greaterThanOrEqualTo(mathBox.size.height * 3.5));
+      expect(decoded.height, lessThan(mathBox.size.height * 4.5 + 2));
+      // The export hugs the formula bounds: the captured width matches the
+      // formula's logical width at ~4x (toImage rounds pixel counts up).
+      expect(decoded.width, greaterThan(mathBox.size.width * 4.0 - 2));
+      expect(decoded.width, lessThan(mathBox.size.width * 4.0 + 2));
+    },
+  );
+
+  testWidgets(
+    'MarkdownWithCodeHighlight exports a large formula within the pixel budget',
+    (tester) async {
+      markdownMathTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => markdownMathTargetPlatformOverride = null);
+
+      Uint8List? savedBytes;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('image_gallery_saver_plus'),
+            (call) async {
+              if (call.method == 'saveImageToGallery') {
+                final args = Map<String, dynamic>.from(call.arguments as Map);
+                savedBytes = args['imageBytes'] as Uint8List?;
+                return <String, Object>{'isSuccess': true};
+              }
+              return null;
+            },
+          );
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('image_gallery_saver_plus'),
+              null,
+            );
+      });
+
+      // A wide 4x4 matrix: flutter_math_fork sizes display math intrinsically
+      // (the chat width constraint never reflows it), so the export renderer
+      // must handle large single-line formulas without exceeding the pixel
+      // budget.
+      final tex =
+          r'\['
+          r'\begin{pmatrix}'
+          r'\frac{\alpha_{11}}{\beta_1} & \frac{\alpha_{12}}{\beta_1} & '
+          r'\frac{\alpha_{13}}{\beta_1} & \frac{\alpha_{14}}{\beta_1} \\'
+          r'\frac{\alpha_{21}}{\beta_2} & \frac{\alpha_{22}}{\beta_2} & '
+          r'\frac{\alpha_{23}}{\beta_2} & \frac{\alpha_{24}}{\beta_2} \\'
+          r'\frac{\alpha_{31}}{\beta_3} & \frac{\alpha_{32}}{\beta_3} & '
+          r'\frac{\alpha_{33}}{\beta_3} & \frac{\alpha_{34}}{\beta_3} \\'
+          r'\frac{\alpha_{41}}{\beta_4} & \frac{\alpha_{42}}{\beta_4} & '
+          r'\frac{\alpha_{43}}{\beta_4} & \frac{\alpha_{44}}{\beta_4}'
+          r'\end{pmatrix}'
+          r'\]';
+      await tester.pumpWidget(_markdownHarness(tex, width: 360));
+      await tester.pump();
+
+      await tester.longPress(find.byType(Math), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save to Gallery'));
+      await tester.pump();
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(savedBytes, isNotNull);
+      final decoded = image_lib.decodePng(savedBytes!);
+      expect(decoded, isNotNull);
+      final corner = decoded!.getPixel(0, 0);
+      expect(corner.a, 0);
+      // Large formulas stay inside the export pixel budget
+      // (maxLongSide 8000, maxPixels 16M at 4x).
+      expect(decoded.width, lessThanOrEqualTo(8000));
+      expect(decoded.height, lessThanOrEqualTo(8000));
+      expect(
+        decoded.width * decoded.height,
+        lessThanOrEqualTo(16 * 1000 * 1000),
+      );
+    },
+  );
+
+  testWidgets('MarkdownWithCodeHighlight math gallery save reports failure', (
+    tester,
+  ) async {
+    markdownMathTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => markdownMathTargetPlatformOverride = null);
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('image_gallery_saver_plus'),
+          (call) async {
+            if (call.method == 'saveImageToGallery') {
+              return <String, Object>{'isSuccess': false};
+            }
+            return null;
+          },
+        );
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('image_gallery_saver_plus'),
+            null,
+          );
+    });
+
+    await tester.pumpWidget(_markdownHarness(r'\[E = mc^2\]', width: 360));
+    await tester.pump();
+
+    await tester.longPress(find.byType(Math), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save to Gallery'));
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+
+    // The harness has no AppSnackBarOverlay in the tree, so the toast is
+    // only observable through the snackbar manager's queue.
+    final toasts = AppSnackBarManager().activeToasts;
+    expect(toasts, isNotEmpty);
+    expect(toasts.first.notification.message, 'Save failed: unknown');
+
+    // Drain the toast auto-dismiss timer and its exit animation so no timers
+    // or tickers leak into the next test.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(milliseconds: 400));
+  });
 
   testWidgets(
     'MarkdownWithCodeHighlight math menu wins over enclosing SelectionArea',

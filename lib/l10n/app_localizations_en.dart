@@ -1755,6 +1755,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get markdownMathDownloadPngLabel => 'Download PNG';
 
   @override
+  String get markdownMathSavePngLabel => 'Save to Gallery';
+
+  @override
   String get markdownMathDefaultFileNameStem => 'math';
 
   @override
