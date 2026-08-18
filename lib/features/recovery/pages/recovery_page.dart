@@ -9,6 +9,7 @@ import '../../../core/providers/backup_provider.dart';
 import '../../../core/providers/backup_reminder_provider.dart';
 import '../../../core/models/backup.dart' show RestoreMode;
 import '../../../core/services/backup/backup_share_helper.dart';
+import '../../../core/services/backup/restore_refresher.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_font_weights.dart';
@@ -117,6 +118,16 @@ class _RecoveryPageState extends State<RecoveryPage> {
         final path = picked.files.first.path;
         if (path == null) return;
         await vm.restoreFromLocalFile(File(path), mode: RestoreMode.overwrite);
+        if (!context.mounted) return;
+        // Mirror the backup_page restore flow: SQLite is rewritten on
+        // disk, but AssistantProvider / ChatService keep stale in-memory
+        // state until we explicitly reload from the repo. Without this,
+        // the user sees "success" but no assistants/conversations until
+        // they force-kill the app and cold-start again. Same single shared
+        // refresh list keeps the two entry points in sync — any new
+        // provider added to refreshProvidersAfterRestore() will now apply
+        // here too.
+        await refreshProvidersAfterRestore(context);
       },
     );
   }
