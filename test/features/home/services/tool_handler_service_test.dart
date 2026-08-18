@@ -225,6 +225,33 @@ void main() {
         },
       );
 
+      test('keeps non-string enum values for $ProviderKind.openai', () {
+        final out = ToolHandlerService.sanitizeToolParametersForProvider({
+          'type': 'object',
+          'properties': {
+            'flag': {
+              'type': 'boolean',
+              'enum': [true, false],
+            },
+            'count': {
+              'type': 'number',
+              'enum': [1, 2, 3],
+            },
+          },
+        }, ProviderKind.openai);
+
+        final props = out['properties'] as Map<String, dynamic>;
+        expect((props['flag'] as Map)['enum'], const [
+          true,
+          false,
+        ], reason: 'only Google drops non-string enum values');
+        expect((props['count'] as Map)['enum'], const [
+          1,
+          2,
+          3,
+        ], reason: 'only Google drops non-string enum values');
+      });
+
       test('does not mutate the input schema (deep clone)', () {
         final input = _sampleSchema();
         ToolHandlerService.sanitizeToolParametersForProvider(
@@ -253,6 +280,73 @@ void main() {
         );
         expect((props['config'] as Map)['properties'], isA<Map>());
       });
+
+      test(
+        'keeps string-only enum but drops enum containing non-string values',
+        () {
+          final out = ToolHandlerService.sanitizeToolParametersForProvider({
+            'type': 'object',
+            'const': true,
+            'properties': {
+              'mode': {
+                'type': 'string',
+                'enum': ['read', 'write'],
+              },
+              'label': {'type': 'string', 'const': 'x'},
+              'flag': {
+                'type': 'boolean',
+                'enum': [true, false],
+              },
+              'count': {
+                'type': 'number',
+                'enum': [1, 2, 3],
+              },
+              'empty': {'type': 'string', 'enum': <String>[]},
+              'rows': {
+                'type': 'array',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'active': {
+                      'type': 'boolean',
+                      'enum': [true],
+                    },
+                    'state': {
+                      'type': 'string',
+                      'enum': ['on', 'off'],
+                    },
+                  },
+                },
+              },
+            },
+          }, ProviderKind.google);
+
+          expect(out.containsKey('enum'), isFalse);
+          expect(out.containsKey('const'), isFalse);
+          final props = out['properties'] as Map<String, dynamic>;
+          expect((props['mode'] as Map)['enum'], const [
+            'read',
+            'write',
+          ], reason: 'string-only enum survives for Google');
+          expect((props['label'] as Map)['enum'], const [
+            'x',
+          ], reason: 'string const converted to enum survives for Google');
+          expect((props['flag'] as Map).containsKey('enum'), isFalse);
+          expect((props['count'] as Map).containsKey('enum'), isFalse);
+          expect(
+            (props['empty'] as Map).containsKey('enum'),
+            isFalse,
+            reason: 'empty enum is dropped for Google',
+          );
+          final rowProps =
+              ((props['rows'] as Map)['items'] as Map)['properties'] as Map;
+          expect(((rowProps['active'] as Map).containsKey('enum')), isFalse);
+          expect((rowProps['state'] as Map)['enum'], const [
+            'on',
+            'off',
+          ], reason: 'nested string-only enum survives for Google');
+        },
+      );
     });
   });
 }

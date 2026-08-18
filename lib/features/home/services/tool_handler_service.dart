@@ -150,6 +150,8 @@ class ToolHandlerService {
           'required',
           'items',
           'enum',
+          // Google/Gemini rejects additionalProperties, so it stays dropped
+          // there while openai/claude preserve it (see below).
         };
         break;
       case ProviderKind.openai:
@@ -171,6 +173,18 @@ class ToolHandlerService {
         break;
     }
     m.removeWhere((k, v) => !allowed.contains(k));
+
+    // Gemini only accepts enum as an array of strings. MCP schemas (and the
+    // `const` -> enum conversion above) may produce bool/num enum values,
+    // which Gemini rejects with HTTP 400 (upstream rikkahub fix
+    // a703930d, rikkahub#477). Keep string-only enums as useful hints,
+    // drop the whole key once a non-string value appears or it is empty.
+    if (kind == ProviderKind.google && m['enum'] is List) {
+      final values = m['enum'] as List;
+      if (values.isEmpty || values.any((e) => e is! String)) {
+        m.remove('enum');
+      }
+    }
     return m;
   }
 
