@@ -65,12 +65,15 @@ void main() {
 
       // The Pencil (Edit) button is the primary edit affordance after the
       // iOS text-selection change — settings.showUserMessageActions defaults
-      // to true, so it is visible on every user message.
-      for (final id in const ['user-old', 'user-latest']) {
-        await tester.tap(find.descendant(
-          of: find.byKey(ValueKey('user-message-content:$id')),
-          matching: find.byIcon(Lucide.Pencil),
-        ));
+      // to true, so it is visible on every user message. The action row sits
+      // outside the per-message Column('user-message-content:<id>'), so we
+      // look at the global Pencil list and tap them in render order, which
+      // matches the messages list order in this harness.
+      final pencils = find.byIcon(Lucide.Pencil);
+      expect(pencils, findsNWidgets(2),
+          reason: 'Both user messages should show the Edit action');
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(pencils.at(i));
         await tester.pumpAndSettle();
       }
 
