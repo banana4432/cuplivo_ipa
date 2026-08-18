@@ -26,16 +26,26 @@ private let backgroundProcessingIdentifier = "com.cup11.cuplivo.background-gener
         if call.method == "getClipboardImages" {
           var paths: [String] = []
           if let image = UIPasteboard.general.image {
-            if let data = image.pngData() ?? image.jpegData(compressionQuality: 0.95) {
-              let tmp = NSTemporaryDirectory()
-              let filename = "pasted_\(Int(Date().timeIntervalSince1970 * 1000)).png"
-              let url = URL(fileURLWithPath: tmp).appendingPathComponent(filename)
-              do {
+            let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+              .appendingPathComponent("clipboard-images", isDirectory: true)
+            do {
+              try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+              Self.cleanupClipboardImages(in: dir)
+              var data: Data?
+              var ext = "png"
+              if let png = image.pngData() {
+                data = png
+              } else if let jpeg = image.jpegData(compressionQuality: 0.95) {
+                data = jpeg
+                ext = "jpg"
+              }
+              if let data {
+                let url = dir.appendingPathComponent("pasted_\(UUID().uuidString).\(ext)")
                 try data.write(to: url)
                 paths.append(url.path)
-              } catch {
-                // ignore write error
               }
+            } catch {
+              // ignore write error
             }
           }
           result(paths)
@@ -75,6 +85,55 @@ private let backgroundProcessingIdentifier = "com.cup11.cuplivo.background-gener
       BackgroundKeepAliveManager.shared.register(with: controller.binaryMessenger)
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// Bounded, TTL-based cleanup for paste-image temp files: repeated
+  /// clipboard pastes no longer grow <container>/tmp without bound. Files
+  /// older than 24 h are removed, then the oldest files are dropped while
+  /// more than 100 files or 100 MB remain.
+  private static func cleanupClipboardImages(in dir: URL) {
+    let fm = FileManager.default
+    guard let urls = try? fm.contentsOfDirectory(
+      at: dir,
+      includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+      options: [.skipsHiddenFiles]
+    ) else { return }
+    let now = Date()
+    let ttl: TimeInterval = 24 * 60 * 60
+    let maxFiles = 100
+    let maxBytes = 100 * 1024 * 1024
+
+    var entries: [(url: URL, modified: Date, size: Int)] = []
+    for url in urls where url.lastPathComponent.hasPrefix("pasted_") {
+      let values = try? url.resourceValues(
+        forKeys: [.contentModificationDateKey, .fileSizeKey]
+      )
+      entries.append((
+        url,
+        values?.contentModificationDate ?? .distantPast,
+        values?.fileSize ?? 0
+      ))
+    }
+
+    let stale = Set(
+      entries.filter { now.timeIntervalSince($0.modified) > ttl }.map(\.url)
+    )
+    for url in stale {
+      try? fm.removeItem(at: url)
+    }
+    entries.removeAll { stale.contains($0.url) }
+
+    if entries.count > maxFiles || entries.reduce(0, { $0 + $1.size }) > maxBytes {
+      let sorted = entries.sorted { $0.modified < $1.modified }
+      var count = entries.count
+      var bytes = entries.reduce(0, { $0 + $1.size })
+      for entry in sorted {
+        if count <= maxFiles && bytes <= maxBytes { break }
+        try? fm.removeItem(at: entry.url)
+        count -= 1
+        bytes -= entry.size
+      }
+    }
   }
 
   override func applicationDidBecomeActive(_ application: UIApplication) {
@@ -501,6 +560,7 @@ private final class IosBackgroundGenerationHandler {
 private final class NativeFileSaveHandler: NSObject, UIDocumentPickerDelegate {
   weak var presentingViewController: UIViewController?
   private var pendingResult: FlutterResult?
+  private var pendingExportURL: URL?
 
   func handle(call: FlutterMethodCall, result: @escaping FlutterResult) {
     if pendingResult != nil {
@@ -525,21 +585,42 @@ private final class NativeFileSaveHandler: NSObject, UIDocumentPickerDelegate {
       return
     }
 
+    // UIDocumentPicker exports the file under its on-disk name, so honor the
+    // Dart-provided fileName by staging an export copy with that name first.
+    let exportURL: URL
+    do {
+      exportURL = try Self.stageExportCopy(
+        of: sourceURL,
+        fileName: args["fileName"] as? String
+      )
+    } catch {
+      result(
+        FlutterError(
+          code: "stage_failed",
+          message: error.localizedDescription,
+          details: nil
+        )
+      )
+      return
+    }
+
     guard let presenter = topViewController(from: presentingViewController) else {
+      try? FileManager.default.removeItem(at: exportURL)
       result(FlutterError(code: "unavailable", message: "Unable to present document picker.", details: nil))
       return
     }
 
     pendingResult = result
+    pendingExportURL = exportURL
 
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
 
       let picker: UIDocumentPickerViewController
       if #available(iOS 14.0, *) {
-        picker = UIDocumentPickerViewController(forExporting: [sourceURL], asCopy: true)
+        picker = UIDocumentPickerViewController(forExporting: [exportURL], asCopy: true)
       } else {
-        picker = UIDocumentPickerViewController(url: sourceURL, in: .exportToService)
+        picker = UIDocumentPickerViewController(url: exportURL, in: .exportToService)
       }
 
       picker.delegate = self
@@ -552,6 +633,36 @@ private final class NativeFileSaveHandler: NSObject, UIDocumentPickerDelegate {
 
       presenter.present(picker, animated: true)
     }
+  }
+
+  /// Copies [sourceURL] into a per-session temp directory under the requested
+  /// [fileName] so the system document picker presents the Dart-provided name
+  /// instead of the original on-disk filename.
+  private static func stageExportCopy(of sourceURL: URL, fileName: String?) throws -> URL {
+    let fm = FileManager.default
+    let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+      .appendingPathComponent("file-save-exports", isDirectory: true)
+    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    let name = Self.sanitizedFileName(fileName ?? sourceURL.lastPathComponent)
+    let target = dir.appendingPathComponent(name)
+    if fm.fileExists(atPath: target.path) {
+      try fm.removeItem(at: target)
+    }
+    try fm.copyItem(at: sourceURL, to: target)
+    return target
+  }
+
+  /// Strips path separators/control characters and caps the length so a
+  /// model/user-supplied name cannot escape the staging directory.
+  private static func sanitizedFileName(_ raw: String) -> String {
+    let invalid = CharacterSet(charactersIn: "/\\:\u{0000}")
+    let cleaned = raw
+      .components(separatedBy: invalid)
+      .joined(separator: "_")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let fallback = URL(fileURLWithPath: raw).lastPathComponent
+    let base = cleaned.isEmpty ? fallback : cleaned
+    return String(base.prefix(200))
   }
 
   func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
@@ -569,6 +680,10 @@ private final class NativeFileSaveHandler: NSObject, UIDocumentPickerDelegate {
   private func finish(with value: Bool) {
     let result = pendingResult
     pendingResult = nil
+    if let exportURL = pendingExportURL {
+      pendingExportURL = nil
+      try? FileManager.default.removeItem(at: exportURL)
+    }
     result?(value)
   }
 
