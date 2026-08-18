@@ -1,11 +1,18 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:Cuplivo/core/providers/settings_provider.dart';
 import 'package:Cuplivo/core/services/mcp/kelivo_filesystem/kelivo_filesystem_server.dart';
 import 'package:Cuplivo/features/settings/pages/mount_files_page.dart';
+import 'package:Cuplivo/icons/lucide_adapter.dart';
 import 'package:Cuplivo/l10n/app_localizations.dart';
+import 'package:Cuplivo/shared/pages/html_file_preview_page.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// The page loads its listing via real dart:io streams; each stream event is
 /// delivered on the real event loop, so pump+runAsync must cycle until the
@@ -86,5 +93,94 @@ void main() {
 
     await pumpUntilFound(tester, find.text('a.txt'));
     expect(find.text('@default'), findsOneWidget, reason: 'breadcrumb');
+  });
+
+  testWidgets('mobile "open" on an html file routes to the in-app WebView '
+      'preview instead of the system open', (tester) async {
+    final tmp = Directory.systemTemp.createTempSync('mount_page_test_');
+    addTearDown(() {
+      try {
+        tmp.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+    File(
+      '${tmp.path}/page.html',
+    ).writeAsStringSync('<!doctype html><html><body>hello</body></html>');
+
+    // IosCardPress reads SettingsProvider on tap; its constructor loads
+    // shared_preferences, so the platform channel needs the in-memory mock.
+    SharedPreferences.setMockInitialValues({});
+    final mount = FilesystemMount(
+      alias: 'default',
+      path: tmp.path,
+      readOnly: false,
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => SettingsProvider(),
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          home: MountFilesPage(mount: mount),
+        ),
+      ),
+    );
+
+    await pumpUntilFound(tester, find.text('page.html'));
+    // Mobile entry: actions fold into the "more" sheet.
+    await tester.tap(find.byIcon(Lucide.Ellipsis));
+    await pumpUntilFound(
+      tester,
+      find.text(
+        AppLocalizations.of(
+          tester.element(find.byType(MountFilesPage)),
+        )!.mountFilesOpenButton,
+      ),
+    );
+    // Let the sheet finish sliding in before tapping its action.
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text(
+        AppLocalizations.of(
+          tester.element(find.byType(MountFilesPage)),
+        )!.mountFilesOpenButton,
+      ),
+    );
+    await pumpUntilFound(tester, find.byType(HtmlFilePreviewPage));
+  });
+
+  testWidgets('desktop shows the system-open entry for html files without '
+      'routing into the in-app WebView', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final tmp = Directory.systemTemp.createTempSync('mount_page_test_');
+      addTearDown(() {
+        try {
+          tmp.deleteSync(recursive: true);
+        } catch (_) {}
+      });
+      File('${tmp.path}/page.html').writeAsStringSync('<html></html>');
+
+      final mount = FilesystemMount(
+        alias: 'default',
+        path: tmp.path,
+        readOnly: false,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          home: MountFilesPage(mount: mount),
+        ),
+      );
+
+      await pumpUntilFound(tester, find.text('page.html'));
+      // Desktop keeps the system default app: the row exposes the inline
+      // external-open icon and never routes into the in-app WebView preview.
+      // (Deliberately not tapped — OpenFilex's desktop branch spawns a real
+      // OS process that would open the browser mid-test.)
+      expect(find.byIcon(Lucide.ExternalLink), findsOneWidget);
+      expect(find.byType(HtmlFilePreviewPage), findsNothing);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }

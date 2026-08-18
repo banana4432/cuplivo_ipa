@@ -20,6 +20,9 @@ import '../../../shared/widgets/ios_checkbox.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/pages/file_preview_page.dart';
+import '../../../shared/pages/html_file_preview_page.dart';
+import '../../../utils/file_kind.dart';
 import '../../../utils/format.dart';
 import '../../../utils/platform_utils.dart';
 import '../../../utils/app_directories.dart';
@@ -1703,6 +1706,42 @@ class _UploadManagerState extends State<_UploadManager> {
 
   Future<void> _openFile(String path) async {
     final l10n = AppLocalizations.of(context)!;
+    // iOS/Android: route previewable kinds in-app — the system-open path
+    // (OpenFilex → UIDocumentInteractionController) cannot render html and
+    // shows an empty menu for types no app handles; OpenFilex also reports
+    // "done" as soon as the menu dismisses, lying about success. Desktop
+    // keeps the system default app.
+    if (PlatformUtils.isMobileTarget) {
+      final name = p.basename(path);
+      // SVG is excluded here: ImageViewerPage decodes with the built-in
+      // raster codec, which cannot render SVG — it falls through to
+      // FilePreviewPage, which renders SVG via SvgPicture.file.
+      if (FileKind.isImageFile(path) && !FileKind.isSvgFile(path)) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ImageViewerPage(images: [path], initialIndex: 0),
+          ),
+        );
+        return;
+      }
+      if (FileKind.isHtmlFile(path)) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                HtmlFilePreviewPage(hostPath: path, displayName: name),
+          ),
+        );
+        return;
+      }
+      if (!FileKind.isLikelyBinary(path)) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FilePreviewPage(hostPath: path, displayName: name),
+          ),
+        );
+        return;
+      }
+    }
     try {
       final res = await OpenFilex.open(path);
       if (res.type != ResultType.done) {

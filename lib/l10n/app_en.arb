@@ -210,6 +210,7 @@
   "mountFilesPreviewBinary": "{name} is a binary file — cannot preview",
   "mountFilesPreviewTooLarge": "{name} is too large to preview",
   "mountFilesPreviewReadFailed": "Failed to read {name}: {error}",
+  "filePreviewOpenWithSystem": "Open with another app",
   "mountFilesPreviewTruncated": "Preview truncated: showing the first lines of {total}",
   "mountFilesMoreButton": "More",
   "mountFilesOpenButton": "Open",

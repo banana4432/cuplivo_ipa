@@ -453,6 +453,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get filePreviewOpenWithSystem => 'Open with another app';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return 'Preview truncated: showing the first lines of $total';
   }

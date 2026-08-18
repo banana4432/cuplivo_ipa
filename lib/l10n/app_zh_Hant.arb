@@ -123,6 +123,7 @@
   "mountFilesPreviewBinary": "{name} 是二進位檔案，無法預覽",
   "mountFilesPreviewTooLarge": "{name} 過大，無法預覽",
   "mountFilesPreviewReadFailed": "讀取 {name} 失敗：{error}",
+  "filePreviewOpenWithSystem": "用其他應用程式開啟",
   "mountFilesPreviewTruncated": "預覽已截斷：僅顯示 {total} 行中的開頭部分",
   "mountFilesMoreButton": "更多",
   "mountFilesOpenButton": "開啟",

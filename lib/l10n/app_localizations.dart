@@ -844,6 +844,12 @@ abstract class AppLocalizations {
   /// **'Failed to read {name}: {error}'**
   String mountFilesPreviewReadFailed(Object error, Object name);
 
+  /// No description provided for @filePreviewOpenWithSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Open with another app'**
+  String get filePreviewOpenWithSystem;
+
   /// No description provided for @mountFilesPreviewTruncated.
   ///
   /// In en, this message translates to:
