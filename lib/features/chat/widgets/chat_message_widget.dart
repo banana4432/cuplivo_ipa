@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart' show cupertinoTextSelectionControls;
 import 'package:flutter/material.dart';
 import '../../../core/services/storage/message_locate_bus.dart';
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
@@ -67,6 +68,25 @@ String _boundedStreamingPreview(SettingsProvider settings, String text) {
   if (!settings.streamingThinkingPreviewTruncate) return text;
   if (text.length <= _streamingThinkingPreviewMaxChars) return text;
   return '…\n${text.substring(text.length - _streamingThinkingPreviewMaxChars)}';
+}
+
+/// Returns the [TextSelectionControls] appropriate for the current platform.
+///
+/// On iOS we explicitly opt into [cupertinoTextSelectionControls] so the
+/// selection handles, magnifier, and toolbar render with the iOS-native look
+/// instead of Material's pill handles that look out of place on iOS. On
+/// other platforms we return `null`, which lets [SelectionArea] pick its
+/// own adaptive default (Material on Android, desktop on macOS/Windows/Linux).
+///
+/// Without this, every [SelectionArea] in chat_message_widget.dart falls back
+/// to Material-styled handles on iOS — the user can still copy/paste, but
+/// the visual language is wrong and the magnifier is missing.
+TextSelectionControls? _platformSelectionControls() {
+  if (kIsWeb) return null;
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    return cupertinoTextSelectionControls;
+  }
+  return null;
 }
 
 Uri? _tryNormalizeExternalUri(String raw) {
@@ -1655,12 +1675,11 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       );
     }
 
-    return isDesktop
-        ? SelectionArea(
-            key: ValueKey('user_${widget.message.id}'),
-            child: content,
-          )
-        : content;
+    return SelectionArea(
+      key: ValueKey('user_${widget.message.id}'),
+      selectionControls: _platformSelectionControls(),
+      child: content,
+    );
   }
 
   Widget? _buildUserAttachmentPreview(
@@ -1953,6 +1972,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     return RepaintBoundary(
       child: SelectionArea(
         key: ValueKey('assistant_${widget.message.id}'),
+        selectionControls: _platformSelectionControls(),
         onSelectionChanged: (selection) {
           _selectedPlainText = selection?.plainText;
         },
@@ -2636,6 +2656,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                                 key: ValueKey(
                                   'translation_${widget.message.id}',
                                 ),
+                                selectionControls:
+                                    _platformSelectionControls(),
                                 child: Builder(
                                   builder: (context) {
                                     final bool isDesktop =
@@ -4063,17 +4085,26 @@ class _ChainOfThoughtReasoningStepState
                 child: SingleChildScrollView(
                   controller: _scroll,
                   physics: const BouncingScrollPhysics(),
-                  child: SelectionArea(child: reasoningContent(display)),
+                  child: SelectionArea(
+                    selectionControls: _platformSelectionControls(),
+                    child: reasoningContent(display),
+                  ),
                 ),
               )
             : SingleChildScrollView(
                 controller: _scroll,
                 physics: const NeverScrollableScrollPhysics(),
-                child: SelectionArea(child: reasoningContent(display)),
+                child: SelectionArea(
+                  selectionControls: _platformSelectionControls(),
+                  child: reasoningContent(display),
+                ),
               ),
       );
     } else if (state == _ReasoningStepState.expanded) {
-      content = SelectionArea(child: reasoningContent(display));
+      content = SelectionArea(
+        selectionControls: _platformSelectionControls(),
+        child: reasoningContent(display),
+      );
     }
 
     return _TimelineStepShell(
@@ -6353,7 +6384,10 @@ class _ReasoningSectionState extends State<_ReasoningSection>
     }
 
     // Enable long-press text selection in reasoning body
-    body = SelectionArea(child: body);
+    body = SelectionArea(
+      selectionControls: _platformSelectionControls(),
+      child: body,
+    );
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
