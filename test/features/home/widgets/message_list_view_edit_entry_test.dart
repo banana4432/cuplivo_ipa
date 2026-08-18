@@ -8,11 +8,11 @@ import 'package:Cuplivo/features/home/controllers/stream_controller.dart'
 import 'package:Cuplivo/features/home/services/ask_user_interaction_service.dart';
 import 'package:Cuplivo/features/home/services/tool_approval_service.dart';
 import 'package:Cuplivo/features/home/widgets/message_list_view.dart';
+import 'package:Cuplivo/icons/lucide_adapter.dart';
 import 'package:Cuplivo/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -108,10 +108,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Selection toolbar from the fork's contextMenuBuilder is present.
+      final ctx = tester.element(find.text('selectable body'));
       expect(
-        find.text(AppLocalizations.of(
-          tester.element(find.text('selectable body')),
-        ).chatMessageWidgetCopyAsPlainText),
+        find.text(AppLocalizations.of(ctx)!.chatMessageWidgetCopyAsPlainText),
         findsOneWidget,
       );
       expect(find.text('Edit'), findsNothing,
