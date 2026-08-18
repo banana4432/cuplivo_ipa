@@ -12,6 +12,7 @@ import '../../../core/services/api/chat_api_service.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/generation_engine.dart';
 import '../../../core/utils/conversation_tree.dart';
+import '../../../utils/utf16_safe_cut.dart';
 import '../../chat/utils/thinking_tag_parser.dart';
 import 'ask_user_interaction_service.dart';
 import 'local_tools_service.dart';

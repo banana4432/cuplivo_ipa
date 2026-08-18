@@ -16,6 +16,7 @@ import '../../../core/services/proactive_care_alarm_service.dart';
 import '../../../core/services/proactive_care_message_flow.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/utils/conversation_tree.dart';
+import '../../../utils/utf16_safe_cut.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../chat/widgets/chat_message_widget.dart' show ToolUIPart;

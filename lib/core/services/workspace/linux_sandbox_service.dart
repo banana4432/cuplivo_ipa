@@ -1196,10 +1196,6 @@ class LinuxSandboxService {
     );
   }
 
-  static String _boundOutput(String value) {
-    return boundOutput(value);
-  }
-
   /// Bounds [value] to [maxOutputChars] characters, keeping a head/tail
   /// preview. Cut points are adjusted so a UTF-16 surrogate pair is never
   /// split: a lone surrogate would make the truncated string unencodable by

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../utils/app_directories.dart';
+import '../../../utils/utf16_safe_cut.dart';
 import '../../../core/services/network/request_logger.dart';
 import 'request_log_parser.dart';
 
