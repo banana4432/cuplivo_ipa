@@ -802,6 +802,54 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
     _exitSelectMode();
   }
 
+  Future<void> _batchPin({required bool pinned}) async {
+    if (_batchBusy) return;
+    final l10n = AppLocalizations.of(context)!;
+    final chatService = context.read<ChatService>();
+    final count = _selectedIds.length;
+    if (count == 0) return;
+    _batchBusy = true;
+    int failed = 0;
+    int toggled = 0;
+    try {
+      for (final id in _selectedIds.toList()) {
+        final conversation = chatService.getConversation(id);
+        if (conversation == null || conversation.isPinned == pinned) {
+          continue;
+        }
+        try {
+          await chatService.togglePinConversation(id);
+          toggled++;
+        } catch (e) {
+          failed++;
+          debugPrint('Batch pin failed for $id: $e');
+        }
+      }
+    } finally {
+      _batchBusy = false;
+    }
+    if (!mounted) return;
+    final done = toggled;
+    if (failed == 0) {
+      showAppSnackBar(
+        context,
+        message: pinned
+            ? l10n.sideDrawerBatchPinSuccess(done)
+            : l10n.sideDrawerBatchUnpinSuccess(done),
+        type: NotificationType.success,
+        duration: const Duration(seconds: 3),
+      );
+    } else {
+      showAppSnackBar(
+        context,
+        message: l10n.sideDrawerBatchPartialFailure(done, failed),
+        type: NotificationType.warning,
+        duration: const Duration(seconds: 4),
+      );
+    }
+    _exitSelectMode();
+  }
+
   Future<void> _batchExport() async {
     if (_batchBusy) return;
     final count = _selectedIds.length;
@@ -825,6 +873,11 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
   Future<void> _showBatchActionsSheet() async {
     if (_selectedIds.isEmpty || _batchBusy) return;
     final l10n = AppLocalizations.of(context)!;
+    final chatService = context.read<ChatService>();
+    final allPinned = _selectedIds.every((id) {
+      final conversation = chatService.getConversation(id);
+      return conversation != null && conversation.isPinned;
+    });
     final isDesktop =
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
@@ -887,6 +940,39 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: Column(
                       children: [
+                        IosCardPress(
+                          borderRadius: BorderRadius.circular(14),
+                          baseColor: cs.surface,
+                          duration: const Duration(milliseconds: 260),
+                          onTap: () => rowAction(
+                            ctx,
+                            () => _batchPin(pinned: !allPinned),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                allPinned ? Lucide.PinOff : Lucide.Pin,
+                                size: 20,
+                                color: cs.onSurface,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                allPinned
+                                    ? l10n.sideDrawerMenuBatchUnpin
+                                    : l10n.sideDrawerMenuBatchPin,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: AppFontWeights.medium,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         IosCardPress(
                           borderRadius: BorderRadius.circular(14),
                           baseColor: cs.surface,
@@ -1059,6 +1145,13 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    row(
+                      icon: allPinned ? Lucide.PinOff : Lucide.Pin,
+                      label: allPinned
+                          ? l10n.sideDrawerMenuBatchUnpin
+                          : l10n.sideDrawerMenuBatchPin,
+                      action: () => _batchPin(pinned: !allPinned),
+                    ),
                     row(
                       icon: Lucide.BookOpenText,
                       label: l10n.sideDrawerMenuBatchExport,

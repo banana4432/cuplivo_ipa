@@ -12,8 +12,10 @@ import '../../../core/services/mcp/kelivo_filesystem/kelivo_filesystem_server.da
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/pages/file_preview_page.dart';
+import '../../../shared/pages/html_file_preview_page.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../utils/file_kind.dart';
 import '../../../utils/format.dart';
 import '../../../utils/platform_utils.dart';
 
@@ -331,6 +333,23 @@ class _MountFilesPageState extends State<MountFilesPage> {
   /// read-only external mounts too.
   Future<void> _openExternal(_DirEntry entry) async {
     final l10n = this.l10n;
+    // iOS/Android cannot hand html to the system reliably (iOS Quick Look
+    // has no html support and the "Open in…" menu is often empty; Android
+    // throws ActivityNotFoundException without a registered handler) — render
+    // it in-app instead so same-directory css/js/images resolve. Desktop
+    // keeps the system default app, which renders html fine.
+    if (PlatformUtils.isMobileTarget && FileKind.isHtmlFile(entry.name)) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => HtmlFilePreviewPage(
+            hostPath: entry.hostPath,
+            displayName: entry.name,
+          ),
+        ),
+      );
+      return;
+    }
     try {
       final res = await OpenFilex.open(entry.hostPath);
       if (res.type != ResultType.done) {

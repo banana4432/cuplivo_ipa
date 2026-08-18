@@ -435,6 +435,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get filePreviewOpenWithSystem => '用其他应用打开';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return '预览已截断：仅显示 $total 行中的开头部分';
   }
@@ -1688,6 +1691,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get markdownMathDownloadPngLabel => '下载 PNG';
 
   @override
+  String get markdownMathSavePngLabel => '保存到相册';
+
+  @override
   String get markdownMathDefaultFileNameStem => '公式';
 
   @override
@@ -2902,6 +2908,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sideDrawerMenuUnpin => '取消置顶';
+
+  @override
+  String get sideDrawerMenuBatchPin => '置顶';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => '取消置顶';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return '已置顶 $count 个会话';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return '已取消置顶 $count 个会话';
+  }
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成标题';
@@ -8575,6 +8597,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
+  String get filePreviewOpenWithSystem => '用其他应用打开';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return '预览已截断：仅显示 $total 行中的开头部分';
   }
@@ -9828,6 +9853,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get markdownMathDownloadPngLabel => '下载 PNG';
 
   @override
+  String get markdownMathSavePngLabel => '保存到相册';
+
+  @override
   String get markdownMathDefaultFileNameStem => '公式';
 
   @override
@@ -11042,6 +11070,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get sideDrawerMenuUnpin => '取消置顶';
+
+  @override
+  String get sideDrawerMenuBatchPin => '置顶';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => '取消置顶';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return '已置顶 $count 个会话';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return '已取消置顶 $count 个会话';
+  }
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成标题';
@@ -16714,6 +16758,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
+  String get filePreviewOpenWithSystem => '用其他應用程式開啟';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return '預覽已截斷：僅顯示 $total 行中的開頭部分';
   }
@@ -17967,6 +18014,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get markdownMathDownloadPngLabel => '下載 PNG';
 
   @override
+  String get markdownMathSavePngLabel => '儲存到相簿';
+
+  @override
   String get markdownMathDefaultFileNameStem => '公式';
 
   @override
@@ -19180,6 +19230,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get sideDrawerMenuUnpin => '取消置頂';
+
+  @override
+  String get sideDrawerMenuBatchPin => '置頂';
+
+  @override
+  String get sideDrawerMenuBatchUnpin => '取消置頂';
+
+  @override
+  String sideDrawerBatchPinSuccess(int count) {
+    return '已置頂 $count 個會話';
+  }
+
+  @override
+  String sideDrawerBatchUnpinSuccess(int count) {
+    return '已取消置頂 $count 個會話';
+  }
 
   @override
   String get sideDrawerMenuRegenerateTitle => '重新生成標題';

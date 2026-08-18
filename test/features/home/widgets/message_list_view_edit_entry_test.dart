@@ -8,6 +8,7 @@ import 'package:Cuplivo/features/home/controllers/stream_controller.dart'
 import 'package:Cuplivo/features/home/services/ask_user_interaction_service.dart';
 import 'package:Cuplivo/features/home/services/tool_approval_service.dart';
 import 'package:Cuplivo/features/home/widgets/message_list_view.dart';
+import 'package:Cuplivo/icons/lucide_adapter.dart';
 import 'package:Cuplivo/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('all user messages expose edit from long press menu', (
+  // iOS text selection (PR #5 / 9d308a10) wrapped user-message content in
+  // SelectionArea so the user can select their own text. After that change a
+  // long-press on the text bubbles up to SelectableRegion and starts text
+  // selection — it no longer reaches the outer GestureDetector that used to
+  // open the action menu. Edit is still exposed through the always-visible
+  // action row below the bubble (Pencil button when showUserMessageActions
+  // is on, Ellipsis → more-sheet otherwise), which this test exercises.
+  testWidgets('all user messages expose edit from action row', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -55,20 +63,57 @@ void main() {
         ),
       );
 
-      await tester.longPress(find.text('old question'));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit'), findsOneWidget);
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-
-      await tester.longPress(find.text('latest question'));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit'), findsOneWidget);
-
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
+      // The Pencil (Edit) button is the primary edit affordance after the
+      // iOS text-selection change — settings.showUserMessageActions defaults
+      // to true, so it is visible on every user message. The action row sits
+      // outside the per-message Column('user-message-content:<id>'), so we
+      // look at the global Pencil list and tap them in render order, which
+      // matches the messages list order in this harness.
+      final pencils = find.byIcon(Lucide.Pencil);
+      expect(pencils, findsNWidgets(2),
+          reason: 'Both user messages should show the Edit action');
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(pencils.at(i));
+        await tester.pumpAndSettle();
+      }
 
       expect(editedMessages, <String>['user-old', 'user-latest']);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  // After iOS text selection (PR #5 / 9d308a10) long-pressing text on a user
+  // message enters text-selection mode rather than the action menu. Lock that
+  // behaviour in so we don't regress back to the old "long press = menu" path.
+  testWidgets('user message long press enters text selection mode',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await tester.pumpWidget(
+        _MessageListHarness(
+          messages: [
+            ChatMessage(
+              id: 'user-1',
+              role: 'user',
+              content: 'selectable body',
+              conversationId: 'conversation-1',
+            ),
+          ],
+          onEditMessage: (_) {},
+        ),
+      );
+
+      await tester.longPress(find.text('selectable body'));
+      await tester.pumpAndSettle();
+
+      // User-message SelectionArea currently relies on Flutter's default
+      // context menu (Copy / SelectAll) rather than the fork's richer one
+      // (which is wired up for assistant messages). Lock in the new
+      // long-press behaviour: the default toolbar appears, Edit does not.
+      expect(find.text('Copy'), findsWidgets);
+      expect(find.text('Edit'), findsNothing,
+          reason: 'Edit must not be reachable via long-press on the text now');
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

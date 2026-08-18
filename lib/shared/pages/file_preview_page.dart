@@ -5,12 +5,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/services/mcp/kelivo_filesystem/kelivo_filesystem_server.dart';
 import '../../icons/lucide_adapter.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/file_kind.dart';
 import '../widgets/ios_tactile.dart';
+import '../widgets/snackbar.dart';
 
 /// File content preview. Read RULES are shared with `kelivo_read`
 /// (32 MB size cap, binary rejection, truncation note) but the preview's
@@ -50,15 +53,6 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   /// without ever materializing the full (up to 32 MB) file in memory.
   static const int _readCapBytes = _previewCharBudget * 4;
 
-  static const Set<String> _imageExtensions = {
-    '.png',
-    '.jpg',
-    '.jpeg',
-    '.gif',
-    '.webp',
-    '.svg',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +81,7 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
         return;
       }
       final ext = p.extension(widget.hostPath).toLowerCase();
-      final isImage = _imageExtensions.contains(ext) && stat.size > 0;
+      final isImage = FileKind.imageExtensions.contains(ext) && stat.size > 0;
       if (isImage && ext == '.svg') {
         // SVG renders straight from disk via SvgPicture.file — reading the
         // bytes here would only duplicate I/O and memory.
@@ -166,6 +160,30 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
     });
   }
 
+  /// Escape hatch for content the preview cannot render (binary probes,
+  /// oversized files, read failures): hand the file to the system default
+  /// app instead of leaving the user at a dead end.
+  Future<void> _openWithSystem() async {
+    try {
+      final res = await OpenFilex.open(widget.hostPath);
+      if (res.type != ResultType.done) {
+        if (!mounted) return;
+        showAppSnackBar(
+          context,
+          message: l10n.mountFilesOpenFailed(res.message, widget.displayName),
+          type: NotificationType.error,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        message: l10n.mountFilesOpenFailed('$e', widget.displayName),
+        type: NotificationType.error,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -187,13 +205,39 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
         _PreviewState.error => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(
-              _errorMessage ?? '',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13.5,
-                color: cs.onSurface.withValues(alpha: 0.7),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _errorMessage ?? '',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                IosCardPress(
+                  onTap: _openWithSystem,
+                  borderRadius: BorderRadius.circular(12),
+                  baseColor: cs.primary.withValues(alpha: 0.12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Lucide.ExternalLink, size: 16, color: cs.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.filePreviewOpenWithSystem,
+                        style: TextStyle(fontSize: 13.5, color: cs.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
