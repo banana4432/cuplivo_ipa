@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 /// Drawer placement side.
 enum DrawerSide { left, right }
 
+/// Width of the screen-edge zone (in logical pixels) that captures the
+/// "swipe from the edge to open the drawer" gesture. Matches iOS's
+/// `UIScreenEdgePanGestureRecognizer` default (~24px) so the gesture still
+/// feels native. Anywhere outside this strip, horizontal drags belong to
+/// the child — e.g. text-selection handles inside the chat UI.
+const double _kEdgeSwipeWidth = 24.0;
+
 /// Controller to programmatically control the drawer.
 class InteractiveDrawerController extends ChangeNotifier {
   InteractiveDrawerController({double initialValue = 0.0})
@@ -248,33 +255,59 @@ class _InteractiveDrawerState extends State<InteractiveDrawer>
       1.0,
     );
 
+    // Edge-only swipe-to-open: the previous implementation wrapped the
+    // entire chat UI in a single GestureDetector(behavior: HitTestBehavior.opaque,
+    // onHorizontalDragStart) which intercepted every horizontal drag on
+    // screen — including the iOS native text-selection drag handle that
+    // SelectionArea routes through Flutter's gesture arena. The arena
+    // resolved in the drawer's favor, so dragging a selection handle to
+    // the right silently opened the assistant drawer instead of growing
+    // the selection. Now the child itself is exposed to the gesture
+    // arena without interception; an edge swipe zone (24 px from the
+    // screen edge, matching iOS's `UIScreenEdgePanGestureRecognizer`
+    // default) is layered on top via Positioned so the drawer still
+    // responds to the iOS-standard "swipe from the left edge" gesture.
+    //
+    // Closing the drawer remains supported by [_buildDraggableDrawer],
+    // which wraps the drawer widget itself in its own GestureDetector;
+    // that path is unchanged.
     return Transform.translate(
       offset: Offset(dx, 0),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: _onDragStart,
-        onHorizontalDragUpdate: _onDragUpdate,
-        onHorizontalDragEnd: _onDragEnd,
-        onTap: widget.barrierDismissible && _controllerProxy.isOpen
-            ? () {
-                // Haptic or other side effects can be hooked by parent.
-                widget.onScrimTap?.call();
-                _controllerProxy.close();
-              }
-            : null,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            widget.child,
-            if (_anim.value > 0.0)
-              IgnorePointer(
-                ignoring: !widget.barrierDismissible,
-                child: Container(
-                  color: widget.scrimColor.withValues(alpha: scrimOpacity),
-                ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Chat UI — no longer wrapped in a drawer-eating GestureDetector,
+          // so SelectionArea + SelectableText can own horizontal drags.
+          widget.child,
+          // Edge swipe zone: only the outermost _kEdgeSwipeWidth pixels
+          // along the drawer's edge register horizontal drags.
+          Positioned(
+            top: 0,
+            bottom: 0,
+            left: _isLeft ? 0 : null,
+            right: _isLeft ? null : 0,
+            width: _kEdgeSwipeWidth,
+            child: IgnorePointer(
+              ignoring: !_controllerProxy.isClosed,
+              // Translucent so taps fall through to the chat UI underneath
+              // when the drawer is closed and the user just happens to tap
+              // the edge zone.
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragStart: _onDragStart,
+                onHorizontalDragUpdate: _onDragUpdate,
+                onHorizontalDragEnd: _onDragEnd,
               ),
-          ],
-        ),
+            ),
+          ),
+          if (_anim.value > 0.0)
+            IgnorePointer(
+              ignoring: !widget.barrierDismissible,
+              child: Container(
+                color: widget.scrimColor.withValues(alpha: scrimOpacity),
+              ),
+            ),
+        ],
       ),
     );
   }
