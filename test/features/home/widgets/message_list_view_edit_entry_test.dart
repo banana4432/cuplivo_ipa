@@ -12,6 +12,7 @@ import 'package:Cuplivo/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('all user messages expose edit from long press menu', (
+  // iOS text selection (PR #5 / 9d308a10) wrapped user-message content in
+  // SelectionArea so the user can select their own text. After that change a
+  // long-press on the text bubbles up to SelectableRegion and starts text
+  // selection — it no longer reaches the outer GestureDetector that used to
+  // open the action menu. Edit is still exposed through the always-visible
+  // action row below the bubble (Pencil button when showUserMessageActions
+  // is on, Ellipsis → more-sheet otherwise), which this test exercises.
+  testWidgets('all user messages expose edit from action row', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -55,20 +63,59 @@ void main() {
         ),
       );
 
-      await tester.longPress(find.text('old question'));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit'), findsOneWidget);
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-
-      await tester.longPress(find.text('latest question'));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit'), findsOneWidget);
-
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
+      // The Pencil (Edit) button is the primary edit affordance after the
+      // iOS text-selection change — settings.showUserMessageActions defaults
+      // to true, so it is visible on every user message.
+      for (final text in const ['old question', 'latest question']) {
+        await tester.tap(find.descendant(
+          of: find.ancestor(
+            of: find.text(text),
+            matching: find.byType(MessageListView),
+          ),
+          matching: find.byIcon(Lucide.Pencil),
+        ));
+        await tester.pumpAndSettle();
+      }
 
       expect(editedMessages, <String>['user-old', 'user-latest']);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  // After iOS text selection (PR #5 / 9d308a10) long-pressing text on a user
+  // message enters text-selection mode rather than the action menu. Lock that
+  // behaviour in so we don't regress back to the old "long press = menu" path.
+  testWidgets('user message long press enters text selection mode',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await tester.pumpWidget(
+        _MessageListHarness(
+          messages: [
+            ChatMessage(
+              id: 'user-1',
+              role: 'user',
+              content: 'selectable body',
+              conversationId: 'conversation-1',
+            ),
+          ],
+          onEditMessage: (_) {},
+        ),
+      );
+
+      await tester.longPress(find.text('selectable body'));
+      await tester.pumpAndSettle();
+
+      // Selection toolbar from the fork's contextMenuBuilder is present.
+      expect(
+        find.text(AppLocalizations.of(
+          tester.element(find.text('selectable body')),
+        ).chatMessageWidgetCopyAsPlainText),
+        findsOneWidget,
+      );
+      expect(find.text('Edit'), findsNothing,
+          reason: 'Edit must not be reachable via long-press on the text now');
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
