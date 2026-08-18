@@ -118,7 +118,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
         final path = picked.files.first.path;
         if (path == null) return;
         await vm.restoreFromLocalFile(File(path), mode: RestoreMode.overwrite);
-        if (!context.mounted) return;
+        if (!mounted) return;
         // Mirror the backup_page restore flow: SQLite is rewritten on
         // disk, but AssistantProvider / ChatService keep stale in-memory
         // state until we explicitly reload from the repo. Without this,
