@@ -378,7 +378,7 @@ class HandoffToolService {
                 '${m.role == 'assistant' ? 'Assistant' : 'User'}: ${m.content}',
           )
           .join('\n\n');
-      final content = joined.length > 3000 ? joined.substring(0, 3000) : joined;
+      final content = truncateHeadUtf16Safe(joined, 3000);
       final locale = Localizations.localeOf(context).toLanguageTag();
 
       final prompt = settings.titlePrompt

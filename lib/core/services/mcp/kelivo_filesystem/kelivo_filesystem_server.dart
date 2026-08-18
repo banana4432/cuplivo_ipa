@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import '../../workspace/workspace_download_service.dart';
 import '../../fetch/web_fetch_target_guard.dart' show WebFetchTargetGuard;
+import '../../../../utils/utf16_safe_cut.dart';
 
 /// A named root directory bound into the `@kelivo/filesystem` MCP server.
 ///
@@ -426,7 +427,7 @@ class KelivoFilesystemMcpServerEngine {
         // it so the output stays bounded instead of emitting a megabyte
         // line into the model context.
         if (content.length > readCharBudget) {
-          content = content.substring(0, readCharBudget);
+          content = truncateHeadUtf16Safe(content, readCharBudget);
           lineCut = true;
         }
         final entry = '$lineNo: $content\n';
@@ -675,9 +676,7 @@ class KelivoFilesystemMcpServerEngine {
               i++
             ) {
               final isMatch = matchSet.contains(i);
-              final shown = lines[i].length > 200
-                  ? lines[i].substring(0, 200)
-                  : lines[i];
+              final shown = truncateHeadUtf16Safe(lines[i], 200);
               // rg convention: match lines use `path:line: text`, context
               // lines use `path:line-text`.
               results.add(

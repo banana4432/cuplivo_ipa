@@ -285,8 +285,13 @@ class RequestLogAiAnalysisExporter {
 
     final omittedCharacters =
         value.length - (_retainedCharactersPerSide * 2);
-    final head = value.substring(0, _retainedCharactersPerSide);
-    final tail = value.substring(value.length - _retainedCharactersPerSide);
+    final head = value.substring(
+      0,
+      utf16SafeHeadEnd(value, _retainedCharactersPerSide),
+    );
+    final tail = value.substring(
+      utf16SafeTailStart(value, value.length - _retainedCharactersPerSide),
+    );
     return '$head\n<TRUNCATED: $omittedCharacters characters omitted>\n$tail';
   }
 

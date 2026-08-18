@@ -13,6 +13,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/backup_reminder_provider.dart';
 import '../../../core/models/chat_item.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../utils/utf16_safe_cut.dart';
 import '../../settings/pages/settings_page.dart';
 import '../../translate/pages/translate_page.dart';
 import '../../backup/pages/backup_page.dart';
@@ -1166,7 +1167,7 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
               '${m.role == 'assistant' ? 'Assistant' : 'User'}: ${m.content}',
         )
         .join('\n\n');
-    final content = joined.length > 3000 ? joined.substring(0, 3000) : joined;
+    final content = truncateHeadUtf16Safe(joined, 3000);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final prompt = settings.titlePrompt
         .replaceAll('{locale}', locale)
