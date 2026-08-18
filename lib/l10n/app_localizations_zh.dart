@@ -435,6 +435,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get filePreviewOpenWithSystem => '用其他应用打开';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return '预览已截断：仅显示 $total 行中的开头部分';
   }
@@ -8575,6 +8578,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
+  String get filePreviewOpenWithSystem => '用其他应用打开';
+
+  @override
   String mountFilesPreviewTruncated(Object total) {
     return '预览已截断：仅显示 $total 行中的开头部分';
   }
@@ -16712,6 +16718,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String mountFilesPreviewReadFailed(Object error, Object name) {
     return '讀取 $name 失敗：$error';
   }
+
+  @override
+  String get filePreviewOpenWithSystem => '用其他應用程式開啟';
 
   @override
   String mountFilesPreviewTruncated(Object total) {
