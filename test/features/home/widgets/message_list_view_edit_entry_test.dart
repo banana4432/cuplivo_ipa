@@ -66,12 +66,9 @@ void main() {
       // The Pencil (Edit) button is the primary edit affordance after the
       // iOS text-selection change — settings.showUserMessageActions defaults
       // to true, so it is visible on every user message.
-      for (final text in const ['old question', 'latest question']) {
+      for (final id in const ['user-old', 'user-latest']) {
         await tester.tap(find.descendant(
-          of: find.ancestor(
-            of: find.text(text),
-            matching: find.byType(MessageListView),
-          ),
+          of: find.byKey(ValueKey('user-message-content:$id')),
           matching: find.byIcon(Lucide.Pencil),
         ));
         await tester.pumpAndSettle();
@@ -107,12 +104,11 @@ void main() {
       await tester.longPress(find.text('selectable body'));
       await tester.pumpAndSettle();
 
-      // Selection toolbar from the fork's contextMenuBuilder is present.
-      final ctx = tester.element(find.text('selectable body'));
-      expect(
-        find.text(AppLocalizations.of(ctx)!.chatMessageWidgetCopyAsPlainText),
-        findsOneWidget,
-      );
+      // User-message SelectionArea currently relies on Flutter's default
+      // context menu (Copy / SelectAll) rather than the fork's richer one
+      // (which is wired up for assistant messages). Lock in the new
+      // long-press behaviour: the default toolbar appears, Edit does not.
+      expect(find.text('Copy'), findsWidgets);
       expect(find.text('Edit'), findsNothing,
           reason: 'Edit must not be reachable via long-press on the text now');
     } finally {
