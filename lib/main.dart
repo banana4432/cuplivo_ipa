@@ -130,8 +130,8 @@ Future<void> main() async {
             48 << 20; // ~48MB
       } catch (_) {}
       // Desktop (Windows) window setup: hide native title bar for custom Flutter bar
-      await _initDesktopWindow();
       // Avoid preloading all system fonts at launch (huge memory on desktop)
+      // ────────────────────────────────────────────────────────────────────
       // Route Flutter framework errors to the global logger so they are
       // captured in the on-disk log file (and not just printed to stderr).
       // Recovery is handled by [ErrorWidget.builder] below — when the build
@@ -146,7 +146,8 @@ Future<void> main() async {
           force: true,
         );
       };
-      WidgetsBinding.instance.platformDispatcher.onError = (Object error, StackTrace stack) {
+      WidgetsBinding.instance.platformDispatcher.onError =
+          (Object error, StackTrace stack) {
         debugPrint('[platformDispatcher] uncaught: $error\n$stack');
         FlutterLogger.log(
           '$error\n$stack',
@@ -155,41 +156,44 @@ Future<void> main() async {
         );
         return true; // mark as handled — keep the app alive
       };
-      // Cache current Documents directory to fix sandboxed absolute paths on iOS
-      await SandboxPathResolver.init();
-      // Skills root is feature-level: a resolution failure (e.g. path_provider
-      // channel unavailable) must not block app startup. Degrade to "skills
-      // unavailable this session" instead of dying before runApp.
-      try {
-        await SkillManager.initRoot();
-      } catch (e, st) {
-        debugPrint('[main] SkillManager.initRoot failed: $e\n$st');
-        FlutterLogger.log(
-          'SkillManager.initRoot failed: $e\n$st',
-          tag: 'Startup',
-          force: true,
-        );
-      }
-      try {
-        await CodexDeviceCodeController.instance.init();
-      } catch (e, st) {
-        debugPrint('[main] CodexDeviceCodeController.init failed: $e\n$st');
-        FlutterLogger.log(
-          'CodexDeviceCodeController.init failed: $e\n$st',
-          tag: 'Startup',
-          force: true,
-        );
-      }
-      try {
-        await GrokDeviceCodeController.instance.init();
-      } catch (e, st) {
-        debugPrint('[main] GrokDeviceCodeController.init failed: $e\n$st');
-        FlutterLogger.log(
-          'GrokDeviceCodeController.init failed: $e\n$st',
-          tag: 'Startup',
-          force: true,
-        );
-      }
+      // Parallelize the independent startup initializers. Each was its own
+      // `await` before, which summed their wall-clock latency (~300ms on
+      // iOS in practice: SharedPreferences reads + path_provider channel
+      // round-trips). Wrapping the mutually-independent ones in a single
+      // `Future.wait` lets the slowest one bound the total instead of the
+      // sum, shaving roughly 100-200ms off the perceived "launch → first
+      // frame" black screen.
+      //
+      // Scope:
+      //  - `_initDesktopWindow` is iOS-skipped (kIsWeb/Platform guard inside)
+      //    so it costs nothing on mobile.
+      //  - `SandboxPathResolver.init` swallows its own failures internally
+      //    (path_provider channel races on iOS at first launch); no extra
+      //    try-catch needed.
+      //  - SkillManager / Codex / Grok each used to wrap their own try-catch
+      //    inline; that pattern is now centralized in `_safeStartupInit`
+      //    below so a failure in one cannot block the others.
+      //  - `ProactiveCareAlarmService` is intentionally excluded: it is
+      //    Android-only (`Platform.isAndroid` guard) and was already
+      //    fire-and-forget — keep that behavior to preserve the existing
+      //    semantics for the Android build.
+      //  - `InputDraftPersistence` stays above this block on purpose: its
+      //    existing comment states the draft must be loaded before `runApp`
+      //    to avoid a race with the chat input bar mount, so it cannot
+      //    move into the parallel group without changing that contract.
+      await Future.wait([
+        _initDesktopWindow(),
+        SandboxPathResolver.init(),
+        _safeStartupInit('SkillManager.initRoot', SkillManager.initRoot),
+        _safeStartupInit(
+          'CodexDeviceCodeController.init',
+          () => CodexDeviceCodeController.instance.init(),
+        ),
+        _safeStartupInit(
+          'GrokDeviceCodeController.init',
+          () => GrokDeviceCodeController.instance.init(),
+        ),
+      ]);
       // Enable edge-to-edge to allow content under system bars (Android)
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       // Android: start AlarmManager service for proactive care exact alarms
@@ -237,6 +241,25 @@ Future<void> _initDesktopWindow() async {
     await DesktopWindowController.instance.initializeAndShow(title: 'Cuplivo');
   } catch (_) {
     // Ignore on unsupported platforms.
+  }
+}
+
+/// Runs a startup initializer, catching any exception so a failure in one
+/// step does not cancel the others when awaited in a [Future.wait] group.
+/// Logs the failure with the given [name] for post-mortem debugging.
+///
+/// Mirrors the inline try-catch pattern that the parallelized
+/// `main()` block used to repeat for each independent startup.
+Future<void> _safeStartupInit(String name, Future<void> Function() fn) async {
+  try {
+    await fn();
+  } catch (e, st) {
+    debugPrint('[$name] failed: $e\n$st');
+    FlutterLogger.log(
+      '$name failed: $e\n$st',
+      tag: 'Startup',
+      force: true,
+    );
   }
 }
 

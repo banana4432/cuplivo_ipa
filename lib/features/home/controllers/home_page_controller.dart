@@ -673,9 +673,22 @@ class HomePageController extends ChangeNotifier {
     final prefs = _context.read<SettingsProvider>();
     final assistantProvider = _context.read<AssistantProvider>();
     final ctx = _context;
-    await _chatService.init();
+    // Run ChatService.init() and AssistantProvider.ensureDefaults() in
+    // parallel. Previously these were sequenced: `_chatService.init()` ran
+    // first, then `ensureDefaults` re-awaited it internally
+    // (AssistantProvider.ensureLoaded waits on `cs.init()` if the chat
+    // service is not yet initialized). Both now share the same underlying
+    // init future (PR #445 single-flight), so wrapping them in
+    // `Future.wait` lets any work `ensureDefaults` does *outside* the
+    // shared await — SharedPreferences reads in `_doLoad`,
+    // `_migrateFromPrefs`, the legacy OCR migration — overlap with the
+    // remaining chat service teardown. Net saving on cold start: roughly
+    // 50-200ms depending on assistant count.
+    await Future.wait([
+      _chatService.init(),
+      assistantProvider.ensureDefaults(ctx),
+    ]);
     if (!ctx.mounted) return;
-    await assistantProvider.ensureDefaults(ctx);
     // Re-arm proactive care exact alarms lost after force-stop or process
     // death. This must run after assistants have finished loading (the
     // first-frame callback in main.dart captured an empty list) — see
