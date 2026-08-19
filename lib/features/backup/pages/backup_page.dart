@@ -20,7 +20,6 @@ import '../../../core/services/backup/data_sync.dart';
 import '../../../core/services/backup/restore_refresher.dart';
 import '../../../core/services/backup/backup_share_helper.dart';
 import '../../../shared/widgets/ios_switch.dart';
-import '../../../shared/dialogs/restart_required_dialog.dart';
 import '../../../shared/dialogs/rikkahub_migrate_dialog.dart';
 import '../../../shared/dialogs/kelivo_compat_dialog.dart';
 import '../../../core/services/backup/cherry_importer.dart';
