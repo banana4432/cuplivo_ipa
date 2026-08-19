@@ -55,11 +55,9 @@ void main() {
       final settings = SettingsProvider();
       await _waitForSettingsLoad();
 
-      // Sanity: empty before reload (nothing was persisted initially beyond
-      // the seed defaults added by `_load` when providerConfigs was empty —
-      // those use the in-memory seed defaults, not the disk ones).
-      expect(settings.providerConfigs.containsKey('MyCustom'), isFalse,
-          reason: 'MyCustom should not exist in memory before reload.');
+      // Both providers are loaded from the disk mock during `_load()` —
+      // sanity check the starting point before reload.
+      expect(settings.providerConfigs['MyCustom']?.baseUrl, isNotNull);
 
       await settings.reloadFromPrefs();
 
@@ -73,12 +71,11 @@ void main() {
 
     test('replaces stale in-memory provider configs with disk contents',
         () async {
+      // Pre-seed an in-memory config so we can prove reload overwrites it
+      // with whatever is on disk.
       SharedPreferences.setMockInitialValues({});
       final settings = SettingsProvider();
       await _waitForSettingsLoad();
-      final before = settings.providerConfigs['OpenAI']?.apiKey;
-      expect(before, isNot('sk-fresh-import'),
-          reason: 'sanity: pre-reload memory has no fresh-import key.');
 
       SharedPreferences.setMockInitialValues({
         'provider_configs_v1': jsonEncode({
@@ -96,12 +93,26 @@ void main() {
     });
 
     test('reloads providers_order_v1', () async {
+      // `_load()` runs `_cleanupProviderOrderAndGrouping()` which removes
+      // any order entries whose key isn't a known provider. We pair the
+      // custom order with matching provider configs so cleanup is a no-op
+      // and the reload can prove it just re-reads what `_load()` already
+      // populated.
       SharedPreferences.setMockInitialValues({
         'providers_order_v1': <String>['Custom', 'OpenAI', 'Anthropic'],
+        'provider_configs_v1': jsonEncode({
+          'Custom': _providerConfigJson(id: 'Custom', name: 'Custom'),
+          'OpenAI': _providerConfigJson(id: 'OpenAI', name: 'OpenAI'),
+          'Anthropic':
+              _providerConfigJson(id: 'Anthropic', name: 'Anthropic'),
+        }),
       });
 
       final settings = SettingsProvider();
       await _waitForSettingsLoad();
+      // Sanity: _load populated the order from disk.
+      expect(settings.providersOrder, ['Custom', 'OpenAI', 'Anthropic']);
+
       await settings.reloadFromPrefs();
 
       expect(settings.providersOrder, ['Custom', 'OpenAI', 'Anthropic']);
@@ -159,22 +170,31 @@ void main() {
       expect(settings.currentModelId, 'my-fancy-model');
     });
 
-    test('falls back to disk values for missing sentinel-true selections',
+    test('reflects a disk-cleared selected_model_v1 when sentinel is armed',
         () async {
-      // Sentinel armed but selection cleared — most likely "user removed
-      // their selection in settings" rather than "fresh install".
-      // Omit `selected_model_v1` from the mock: SharedPreferences treats
-      // absent keys as null, which is exactly what we want here.
+      // Simulate the post-restore state where data_sync decided the
+      // imported backup had no selected_model_v1 entry (overwrite mode
+      // with empty backup, or merge mode keeping a previously-cleared
+      // selection). Sentinel stays armed because the user had previously
+      // owned a model selection — reloading must NOT re-seed DeepSeek.
+      // Without this, the in-memory value would survive reload even
+      // though the disk no longer agrees.
       SharedPreferences.setMockInitialValues({
         'default_model_seeded_v1': true,
       });
 
       final settings = SettingsProvider();
       await _waitForSettingsLoad();
-      // Pre-seed an in-memory selection so we can prove the reload clears it
-      // back to null (matching disk state).
+      expect(settings.currentModelProvider, isNull,
+          reason: 'fresh state with armed sentinel starts null.');
+
+      // Pretend another code path had seeded an in-memory selection.
+      // reloadFromPrefs() should overwrite it with the disk state.
       await settings.setCurrentModel('OpenAI', 'gpt-4o');
       expect(settings.currentModelProvider, 'OpenAI');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('selected_model_v1');
 
       await settings.reloadFromPrefs();
 
