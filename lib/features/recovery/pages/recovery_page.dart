@@ -10,6 +10,7 @@ import '../../../core/providers/backup_reminder_provider.dart';
 import '../../../core/models/backup.dart' show RestoreMode;
 import '../../../core/services/backup/backup_share_helper.dart';
 import '../../../core/services/backup/restore_refresher.dart';
+import '../../../shared/dialogs/restart_required_dialog.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_font_weights.dart';
@@ -128,6 +129,14 @@ class _RecoveryPageState extends State<RecoveryPage> {
         // provider added to refreshProvidersAfterRestore() will now apply
         // here too.
         await refreshProvidersAfterRestore(context);
+        if (!mounted) return;
+        // Same as backup_page: settings.json is fully restored to disk via
+        // SharedPreferencesAsync.restore(map), but SettingsProvider mirrors
+        // dozens of display/theme/haptics keys whose side-effects (and
+        // reload semantics) can't be safely re-fired on every import. Force
+        // the user to cold-start so _load() reads the freshly restored
+        // SharedPreferences in full.
+        await showRestartRequiredDialog(context);
       },
     );
   }
