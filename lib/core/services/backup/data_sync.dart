@@ -1218,6 +1218,24 @@ class DataSync {
               toolEventsByMessageId: toolEvents,
               geminiSignaturesByMessageId: geminiThoughtSigs,
             );
+            // After overwrite import, bridge kelivo-style "no parent /
+            // no group / no version" messages into the directed-tree layout.
+            // `adoptLinearConversationAsDirectedTree` is a no-op for
+            // conversations that already carry directed-tree fields
+            // (activeMessageId / parentMessageId / version != 0 /
+            // duplicate groupId), so existing Cuplivo exports are left
+            // untouched. This makes the first message a user sends after
+            // a kelivo import a sibling/child of the existing chain
+            // instead of a brand-new root.
+            for (final c in convs) {
+              if (c.isGroup) continue;
+              try {
+                await chatService.adoptLinearConversationAsDirectedTree(c.id);
+              } catch (e) {
+                debugPrint(
+                    'restoreData: adoptLinear failed for ${c.id}: $e');
+              }
+            }
           } else {
             // Merge mode: Add only non-existing conversations and messages
             final existingConvs = chatService.getAllCompleteConversations();

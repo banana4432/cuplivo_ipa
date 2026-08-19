@@ -1104,6 +1104,296 @@ void main() {
     );
   });
 
+  group('DataSync directed-tree adoption on import', () {
+    late Directory root;
+
+    setUp(() async {
+      root = await Directory.systemTemp.createTemp('kelivo_dtree_adopt_');
+      PathProviderPlatform.instance = _FakePathProviderPlatform(root.path);
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    tearDown(() async {
+      if (await root.exists()) {
+        await root.delete(recursive: true);
+      }
+    });
+
+    Future<File> makeChatsZip({
+      required List<Conversation> convs,
+      required List<ChatMessage> msgs,
+    }) async {
+      final chatsFile = File('${root.path}/chats.json');
+      await chatsFile.writeAsString(
+        jsonEncode({
+          'version': 1,
+          'conversations': convs.map((c) => c.toJson()).toList(),
+          'messages': msgs.map((m) => m.toJson()).toList(),
+          'toolEvents': <String, dynamic>{},
+          'geminiThoughtSigs': <String, dynamic>{},
+          'groupChats': <dynamic>[],
+          'groupMembers': <dynamic>[],
+        }),
+      );
+      final settingsFile = File('${root.path}/settings.json');
+      await settingsFile.writeAsString('{}');
+      final zipFile = File('${root.path}/kelivo.zip');
+      final encoder = ZipFileEncoder();
+      encoder.create(zipFile.path);
+      encoder.addFileSync(chatsFile, 'chats.json');
+      encoder.addFileSync(settingsFile, 'settings.json');
+      encoder.closeSync();
+      return zipFile;
+    }
+
+    test(
+      'kelivo-style import: messages have no parent/group → adopt linear tree',
+      () async {
+        final chatService = _InMemoryChatService();
+        addTearDown(chatService.closeDb);
+
+        // Simulate a kelivo export: no activeMessageId, no parent/group/
+        // version info on any message.
+        final conv = Conversation(
+          id: 'kelivo-conv',
+          title: 'SFS Tutorial',
+          createdAt: DateTime(2026, 7, 23),
+          updatedAt: DateTime(2026, 8, 18),
+          messageIds: ['k-msg-1', 'k-msg-2'],
+          activeMessageId: null,
+        );
+        final kMsg1 = ChatMessage(
+          id: 'k-msg-1',
+          role: 'user',
+          content: '1+1=?',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'kelivo-conv',
+          isStreaming: false,
+        );
+        final kMsg2 = ChatMessage(
+          id: 'k-msg-2',
+          role: 'assistant',
+          content: '=2',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'kelivo-conv',
+          isStreaming: false,
+        );
+        final zipFile = await makeChatsZip(
+          convs: [conv],
+          msgs: [kMsg1, kMsg2],
+        );
+
+        final sync = DataSync(chatService: chatService);
+        await sync.restoreFromLocalFile(
+          zipFile,
+          const BackupExportOptions(includeChats: true, includeFiles: false),
+          mode: RestoreMode.overwrite,
+        );
+
+        // After import the conversation has been promoted to a directed
+        // tree: activeMessageId is set, and messages are chained by parent.
+        final updated = chatService.getConversation('kelivo-conv');
+        expect(updated, isNotNull);
+        expect(updated!.activeMessageId, isNotNull,
+            reason: 'kelivo import should backfill activeMessageId');
+        expect(updated.activeMessageId, 'k-msg-2');
+
+        final messages = chatService.getMessages('kelivo-conv');
+        expect(messages, hasLength(2));
+        // First message: root, parent null, groupId = conversation-root
+        final first = messages.firstWhere((m) => m.id == 'k-msg-1');
+        expect(first.parentMessageId, isNull);
+        expect(
+          first.groupId,
+          '__conversation_tree_root__:kelivo-conv',
+        );
+        // Second message: parent = first
+        final second = messages.firstWhere((m) => m.id == 'k-msg-2');
+        expect(second.parentMessageId, 'k-msg-1');
+        expect(second.groupId, 'k-msg-1');
+      },
+    );
+
+    test(
+      'cuplivo-style import: messages have parent + group → adopt is a noop',
+      () async {
+        final chatService = _InMemoryChatService();
+        addTearDown(chatService.closeDb);
+
+        // A Cuplivo export has activeMessageId + parent_message_id +
+        // group_id on every message. The adoption heuristic must skip it.
+        final conv = Conversation(
+          id: 'cuplivo-conv',
+          title: 'Cuplivo Chat',
+          createdAt: DateTime(2026, 8, 1),
+          updatedAt: DateTime(2026, 8, 18),
+          messageIds: ['c-msg-1', 'c-msg-2'],
+          activeMessageId: 'c-msg-2',
+        );
+        final cMsg1 = ChatMessage(
+          id: 'c-msg-1',
+          role: 'user',
+          content: '1+1=?',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'cuplivo-conv',
+          isStreaming: false,
+          groupId: '__conversation_tree_root__:cuplivo-conv',
+        );
+        final cMsg2 = ChatMessage(
+          id: 'c-msg-2',
+          role: 'assistant',
+          content: '=2',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'cuplivo-conv',
+          isStreaming: false,
+          parentMessageId: 'c-msg-1',
+          groupId: 'c-msg-1',
+        );
+        final zipFile = await makeChatsZip(
+          convs: [conv],
+          msgs: [cMsg1, cMsg2],
+        );
+
+        final sync = DataSync(chatService: chatService);
+        await sync.restoreFromLocalFile(
+          zipFile,
+          const BackupExportOptions(includeChats: true, includeFiles: false),
+          mode: RestoreMode.overwrite,
+        );
+
+        // The conversation and its directed-tree fields are preserved as-is.
+        final messages = chatService.getMessages('cuplivo-conv');
+        expect(messages, hasLength(2));
+        // Parents and groups are still the originals — adopt did not
+        // rewrite them into a fresh linear chain.
+        final first = messages.firstWhere((m) => m.id == 'c-msg-1');
+        expect(first.parentMessageId, isNull);
+        expect(
+          first.groupId,
+          '__conversation_tree_root__:cuplivo-conv',
+        );
+        final second = messages.firstWhere((m) => m.id == 'c-msg-2');
+        expect(second.parentMessageId, 'c-msg-1');
+        expect(second.groupId, 'c-msg-1');
+      },
+    );
+
+    test(
+      'imported conversation with message already carrying parent → adopt is a noop',
+      () async {
+        final chatService = _InMemoryChatService();
+        addTearDown(chatService.closeDb);
+
+        // Edge case: backup has activeMessageId=null but messages already
+        // carry parentMessageId (e.g. partial migration). The "already a
+        // tree" check must trigger on the first message with a parent.
+        final conv = Conversation(
+          id: 'partial-conv',
+          title: 'Partial',
+          createdAt: DateTime(2026, 8, 1),
+          updatedAt: DateTime(2026, 8, 18),
+          messageIds: ['p-msg-1', 'p-msg-2'],
+          activeMessageId: null,
+        );
+        final pMsg1 = ChatMessage(
+          id: 'p-msg-1',
+          role: 'user',
+          content: 'hi',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'partial-conv',
+          isStreaming: false,
+          groupId: '__conversation_tree_root__:partial-conv',
+        );
+        final pMsg2 = ChatMessage(
+          id: 'p-msg-2',
+          role: 'assistant',
+          content: 'hello',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'partial-conv',
+          isStreaming: false,
+          parentMessageId: 'p-msg-1',
+          groupId: 'p-msg-1',
+        );
+        final zipFile = await makeChatsZip(
+          convs: [conv],
+          msgs: [pMsg1, pMsg2],
+        );
+
+        final sync = DataSync(chatService: chatService);
+        await sync.restoreFromLocalFile(
+          zipFile,
+          const BackupExportOptions(includeChats: true, includeFiles: false),
+          mode: RestoreMode.overwrite,
+        );
+
+        // activeMessageId is NOT backfilled (the conversation already
+        // carried parent/group → adopt skipped).
+        final updated = chatService.getConversation('partial-conv');
+        expect(updated, isNotNull);
+        expect(updated!.activeMessageId, isNull,
+            reason: 'adopt must skip when any message has a parent');
+      },
+    );
+
+    test(
+      'merge mode does NOT call adoptLinearConversationAsDirectedTree',
+      () async {
+        final chatService = _InMemoryChatService();
+        addTearDown(chatService.closeDb);
+
+        // Pre-populate a kelivo-style conversation locally (so merge has
+        // something to skip via existingConvIds).
+        final existingConv = Conversation(
+          id: 'kelivo-conv',
+          title: 'Pre-existing',
+          createdAt: DateTime(2026, 7, 23),
+          updatedAt: DateTime(2026, 8, 18),
+          messageIds: ['k-msg-1', 'k-msg-2'],
+          activeMessageId: null,
+        );
+        final existingMsg1 = ChatMessage(
+          id: 'k-msg-1',
+          role: 'user',
+          content: '1+1=?',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'kelivo-conv',
+          isStreaming: false,
+        );
+        final existingMsg2 = ChatMessage(
+          id: 'k-msg-2',
+          role: 'assistant',
+          content: '=2',
+          timestamp: DateTime(2026, 8, 18),
+          conversationId: 'kelivo-conv',
+          isStreaming: false,
+        );
+        await chatService.restoreConversation(
+          existingConv,
+          [existingMsg1, existingMsg2],
+        );
+
+        // Import the same kelivo-style conversation via merge mode.
+        final zipFile = await makeChatsZip(
+          convs: [existingConv],
+          msgs: [existingMsg1, existingMsg2],
+        );
+        final sync = DataSync(chatService: chatService);
+        await sync.restoreFromLocalFile(
+          zipFile,
+          const BackupExportOptions(includeChats: true, includeFiles: false),
+          mode: RestoreMode.merge,
+        );
+
+        // Merge must NOT call adopt on the existing conversation
+        // (per the design — adopt is overwrite-only).
+        final updated = chatService.getConversation('kelivo-conv');
+        expect(updated, isNotNull);
+        expect(updated!.activeMessageId, isNull,
+            reason: 'merge mode must skip adopt entirely');
+      },
+    );
+  });
+
   group('DataSync Kelivo image-settings interop', () {
     late Directory root;
 

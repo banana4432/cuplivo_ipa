@@ -1292,9 +1292,15 @@ class ChatService extends ChangeNotifier {
     //
     // Existing non-empty legacy conversations intentionally remain untouched:
     // their parent links cannot be reconstructed safely from flat versions.
+    // Use the sync-db message count instead of `conversation.messageIds`
+    // so the decision doesn't depend on a possibly-empty cache.messageIds
+    // (see [issue: import-after-restore-context-leak]). The conversation
+    // should be treated as directed only when the DB already holds
+    // parent/version info OR when it has no messages at all (new draft).
     final useDirectedTree =
         !conversation.isGroup &&
-        (conversation.activeMessageId != null || conversation.messageIds.isEmpty);
+        (conversation.activeMessageId != null ||
+            getMessageCount(conversationId) == 0);
     final resolvedParentMessageId = useDirectedTree
         ? (parentMessageId ?? conversation.activeMessageId)
         : parentMessageId;
@@ -1864,10 +1870,19 @@ class ChatService extends ChangeNotifier {
     if (messages.isEmpty || messages.any((message) => message.subgroupId != null)) {
       return false;
     }
+    // Refuse to rewrite a conversation that already carries a directed-tree
+    // structure — even partially. kelivo-style backups have *no* parent/
+    // group/version info at all, so this filter accepts them. Anything that
+    // already has `parentMessageId` set, a non-zero version, or a duplicate
+    // groupId is treated as "already a tree" and left alone.
     final seenGroups = <String>{};
     for (final message in messages) {
       final groupId = message.groupId ?? message.id;
-      if (message.version != 0 || !seenGroups.add(groupId)) return false;
+      if (message.version != 0) return false;
+      final hasParent = message.parentMessageId != null &&
+          message.parentMessageId!.isNotEmpty;
+      if (hasParent) return false;
+      if (!seenGroups.add(groupId)) return false;
     }
 
     String? parentMessageId;

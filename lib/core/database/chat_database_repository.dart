@@ -204,8 +204,13 @@ class ChatDatabaseRepository {
     final rows = db.select(
       'SELECT * FROM conversation_rows ORDER BY updated_at DESC',
     );
+    // Always include messageIds so cache-based `useDirectedTree` checks
+    // (`conversation.messageIds.isEmpty`) reflect real DB state. Otherwise
+    // after a restore the cache would show messageIds == [] for conversations
+    // that actually have messages, and addMessage() would treat them as
+    // fresh drafts.
     return rows
-        .map((row) => _conversationFromSqliteRow(row, includeMessageIds: false))
+        .map((row) => _conversationFromSqliteRow(row, includeMessageIds: true))
         .where((c) => includeGroup || !c.isGroup)
         .toList(growable: false);
   }
