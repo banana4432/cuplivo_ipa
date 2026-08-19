@@ -213,8 +213,12 @@ class _BackupPageState extends State<BackupPage> {
   Future<void> _afterSuccessfulRestore(BuildContext context) async {
     if (!context.mounted) return;
     await _refreshProvidersAfterRestore(context);
-    if (!context.mounted) return;
-    await showRestartRequiredDialog(context);
+    // No restart required: refreshProvidersAfterRestore now reloads
+    // SettingsProvider (provider configs / ordering / grouping / pinned /
+    // current selection) in addition to the chat caches, so imported
+    // providers show up in the model picker immediately. The previous
+    // "restart to apply" dialog was masking the missing SettingsProvider
+    // refresh — see fix/restore-refresh-settings.
   }
 
   @override

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/assistant_provider.dart';
 import '../../providers/group_chat_provider.dart';
 import '../../providers/mcp_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../chat/chat_service.dart';
 
@@ -20,6 +21,7 @@ Future<void> refreshProvidersAfterRestore(BuildContext context) async {
   final assistantProvider = context.read<AssistantProvider>();
   final groupChatProvider = context.read<GroupChatProvider>();
   final mcpProvider = context.read<McpProvider>();
+  final settingsProvider = context.read<SettingsProvider>();
   final workspaceProvider = context.read<WorkspaceProvider>();
   try {
     await chatService.reloadCachesFromDb();
@@ -41,6 +43,18 @@ Future<void> refreshProvidersAfterRestore(BuildContext context) async {
     await mcpProvider.reloadFromPrefs();
   } catch (e) {
     debugPrint('refreshProvidersAfterRestore: McpProvider: $e');
+  }
+  try {
+    // Reload settings (provider configs / ordering / grouping / pinned /
+    // current selection) after the other providers so the assistant-list
+    // rebuild below sees the imported provider keys. Without this the
+    // post-restore UI keeps showing the pre-restore provider list until
+    // the user force-kills the app — provider configs sit in
+    // SharedPreferences, not SQLite, so chatService.reloadCachesFromDb()
+    // alone does not pick them up.
+    await settingsProvider.reloadFromPrefs();
+  } catch (e) {
+    debugPrint('refreshProvidersAfterRestore: SettingsProvider: $e');
   }
   try {
     await assistantProvider.reloadFromRepo();
