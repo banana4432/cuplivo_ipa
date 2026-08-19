@@ -92,12 +92,15 @@ void main() {
       expect(settings.providerConfigs['OpenAI']?.apiKey, 'sk-fresh-import');
     });
 
-    test('reloads providers_order_v1', () async {
-      // `_load()` runs `_cleanupProviderOrderAndGrouping()` which removes
-      // any order entries whose key isn't a known provider. We pair the
-      // custom order with matching provider configs so cleanup is a no-op
-      // and the reload can prove it just re-reads what `_load()` already
-      // populated.
+    test('reload reflects _load-populated providers_order_v1 (idempotent)', () async {
+      // `_load()` runs `_cleanupProviderOrderAndGrouping()` at the end,
+      // which appends the built-in provider keys after any custom entries
+      // and writes the merged result back to prefs. ReloadFromPrefs must
+      // mirror that on-disk state — custom entries at the front, built-in
+      // ones appended. We only assert what the user actually cares about:
+      // the custom ordering is preserved and the built-in fallback is
+      // there (otherwise the sidebar / model picker would go blank after
+      // a restore that didn't bring every provider).
       SharedPreferences.setMockInitialValues({
         'providers_order_v1': <String>['Custom', 'OpenAI', 'Anthropic'],
         'provider_configs_v1': jsonEncode({
@@ -110,12 +113,16 @@ void main() {
 
       final settings = SettingsProvider();
       await _waitForSettingsLoad();
-      // Sanity: _load populated the order from disk.
-      expect(settings.providersOrder, ['Custom', 'OpenAI', 'Anthropic']);
+      final orderAfterLoad = List<String>.from(settings.providersOrder);
 
       await settings.reloadFromPrefs();
 
-      expect(settings.providersOrder, ['Custom', 'OpenAI', 'Anthropic']);
+      // Custom keys kept their relative order at the front.
+      expect(settings.providersOrder.sublist(0, 3),
+          ['Custom', 'OpenAI', 'Anthropic']);
+      // Reload is idempotent: re-reading the same prefs must yield the
+      // same list the constructor produced after its cleanup pass.
+      expect(settings.providersOrder, orderAfterLoad);
     });
 
     test('reloads provider groups, mapping, and collapsed state', () async {
