@@ -47,7 +47,7 @@ class _DummyChatService extends ChatService {
 }
 
 class _SpyMcpProvider extends McpProvider {
-  _SpyMcpProvider() : super(contextProvider: _NullContextProvider());
+  _SpyMcpProvider() : super(contextProvider: _nullContextProvider);
   int reloadCalls = 0;
   @override
   Future<void> reloadFromPrefs() async {
@@ -58,7 +58,7 @@ class _SpyMcpProvider extends McpProvider {
 /// McpProvider's `contextProvider` callback is only invoked when an OAuth
 /// flow needs a BuildContext; the spy never reaches that path (it stubs
 /// reloadFromPrefs), so a never-called stub is fine.
-BuildContext _NullContextProvider() =>
+BuildContext _nullContextProvider() =>
     throw StateError('contextProvider should not be invoked in this spy');
 
 class _SpyWorkspaceProvider extends WorkspaceProvider {

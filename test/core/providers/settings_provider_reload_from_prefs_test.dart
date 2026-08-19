@@ -163,8 +163,9 @@ void main() {
         () async {
       // Sentinel armed but selection cleared — most likely "user removed
       // their selection in settings" rather than "fresh install".
+      // Omit `selected_model_v1` from the mock: SharedPreferences treats
+      // absent keys as null, which is exactly what we want here.
       SharedPreferences.setMockInitialValues({
-        'selected_model_v1': null,
         'default_model_seeded_v1': true,
       });
 
@@ -182,10 +183,9 @@ void main() {
     });
 
     test('seeds DeepSeek default when sentinel is not yet armed', () async {
-      SharedPreferences.setMockInitialValues({
-        'selected_model_v1': null,
-        // default_model_seeded_v1 intentionally absent
-      });
+      // Omit both `selected_model_v1` and `default_model_seeded_v1`:
+      // a fresh install with no persisted prefs.
+      SharedPreferences.setMockInitialValues({});
 
       final settings = SettingsProvider();
       await _waitForSettingsLoad();
