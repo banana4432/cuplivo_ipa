@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../providers/assistant_provider.dart';
 import '../../providers/group_chat_provider.dart';
 import '../../providers/mcp_provider.dart';
-import '../../providers/settings_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../chat/chat_service.dart';
 
@@ -12,16 +11,24 @@ import '../chat/chat_service.dart';
 /// import rewrote SQLite or SharedPreferences, so the UI does not keep a
 /// cleared or pre-restore in-memory snapshot.
 ///
+/// Note: SettingsProvider is intentionally NOT refreshed here. data_sync
+/// restore rewrites every SharedPreferences key via SharedPreferencesAsync
+/// `.restore(map)` (overwrite mode) or per-key merge, but SettingsProvider
+/// is built around dozens of display/theme/haptics/settings toggles whose
+/// side effects (Haptics.setEnabled, RequestLogger.setEnabled, font
+/// re-registration, one-shot migrations) should NOT re-fire on every
+/// import. Instead, the backup flow shows a "restart to apply" dialog so
+/// the user cold-starts the app — only then does `SettingsProvider._load()`
+/// read the freshly restored prefs in full.
+///
 /// Single shared refresh list for all restore entry points (mobile backup
-/// page, desktop backup pane, LAN sync). Any new provider that persists state
-/// must subscribe here; adding reloads at individual call sites is what let
-/// the refresh list drift out of sync before.
+/// page, desktop backup pane, LAN sync). Any new SQLite-backed provider
+/// must subscribe here.
 Future<void> refreshProvidersAfterRestore(BuildContext context) async {
   final chatService = context.read<ChatService>();
   final assistantProvider = context.read<AssistantProvider>();
   final groupChatProvider = context.read<GroupChatProvider>();
   final mcpProvider = context.read<McpProvider>();
-  final settingsProvider = context.read<SettingsProvider>();
   final workspaceProvider = context.read<WorkspaceProvider>();
   try {
     await chatService.reloadCachesFromDb();
@@ -43,18 +50,6 @@ Future<void> refreshProvidersAfterRestore(BuildContext context) async {
     await mcpProvider.reloadFromPrefs();
   } catch (e) {
     debugPrint('refreshProvidersAfterRestore: McpProvider: $e');
-  }
-  try {
-    // Reload settings (provider configs / ordering / grouping / pinned /
-    // current selection) after the other providers so the assistant-list
-    // rebuild below sees the imported provider keys. Without this the
-    // post-restore UI keeps showing the pre-restore provider list until
-    // the user force-kills the app — provider configs sit in
-    // SharedPreferences, not SQLite, so chatService.reloadCachesFromDb()
-    // alone does not pick them up.
-    await settingsProvider.reloadFromPrefs();
-  } catch (e) {
-    debugPrint('refreshProvidersAfterRestore: SettingsProvider: $e');
   }
   try {
     await assistantProvider.reloadFromRepo();

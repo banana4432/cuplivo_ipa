@@ -1292,9 +1292,19 @@ class ChatService extends ChangeNotifier {
     //
     // Existing non-empty legacy conversations intentionally remain untouched:
     // their parent links cannot be reconstructed safely from flat versions.
+    // Bug fix: use sync-db message count instead of `conversation.messageIds`
+    // so the decision doesn't depend on a possibly-empty cache.messageIds
+    // (see [issue: import-after-restore-context-leak]). A kelivo-style
+    // imported conversation has no `activeMessageId` and its messages have
+    // no parent/group/version info, but `getMessageCount` still reflects
+    // the real DB state. Using `messageIds.isEmpty` (the cache value)
+    // would treat every restored conversation as "fresh draft" and route
+    // the next user message through the directed-tree branch as a new
+    // root, hiding the entire history from the AI.
     final useDirectedTree =
         !conversation.isGroup &&
-        (conversation.activeMessageId != null || conversation.messageIds.isEmpty);
+        (conversation.activeMessageId != null ||
+            getMessageCount(conversationId) == 0);
     final resolvedParentMessageId = useDirectedTree
         ? (parentMessageId ?? conversation.activeMessageId)
         : parentMessageId;

@@ -22,6 +22,7 @@ import '../../../core/services/backup/backup_share_helper.dart';
 import '../../../shared/widgets/ios_switch.dart';
 import '../../../shared/dialogs/rikkahub_migrate_dialog.dart';
 import '../../../shared/dialogs/kelivo_compat_dialog.dart';
+import '../../../shared/dialogs/restart_required_dialog.dart';
 import '../../../core/services/backup/cherry_importer.dart';
 import '../../../core/services/backup/chatbox_importer.dart';
 import '../../recovery/pages/recovery_page.dart';
@@ -212,12 +213,8 @@ class _BackupPageState extends State<BackupPage> {
   Future<void> _afterSuccessfulRestore(BuildContext context) async {
     if (!context.mounted) return;
     await _refreshProvidersAfterRestore(context);
-    // No restart required: refreshProvidersAfterRestore now reloads
-    // SettingsProvider (provider configs / ordering / grouping / pinned /
-    // current selection) in addition to the chat caches, so imported
-    // providers show up in the model picker immediately. The previous
-    // "restart to apply" dialog was masking the missing SettingsProvider
-    // refresh — see fix/restore-refresh-settings.
+    if (!context.mounted) return;
+    await showRestartRequiredDialog(context);
   }
 
   @override

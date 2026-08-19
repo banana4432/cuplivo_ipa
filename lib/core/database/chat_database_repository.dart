@@ -204,8 +204,15 @@ class ChatDatabaseRepository {
     final rows = db.select(
       'SELECT * FROM conversation_rows ORDER BY updated_at DESC',
     );
+    // Bug fix: include messageIds so cache-based `useDirectedTree` checks
+    // (`conversation.messageIds.isEmpty`) reflect real DB state. Otherwise
+    // after a restore the cache would show messageIds == [] for
+    // conversations that actually have messages, and addMessage()'s
+    // downstream `getMessageCount == 0` branch would correctly skip them
+    // but every other call site that still reads cache.messageIds would
+    // behave inconsistently. The sync path runs on every list render.
     return rows
-        .map((row) => _conversationFromSqliteRow(row, includeMessageIds: false))
+        .map((row) => _conversationFromSqliteRow(row, includeMessageIds: true))
         .where((c) => includeGroup || !c.isGroup)
         .toList(growable: false);
   }
